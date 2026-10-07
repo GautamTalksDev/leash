@@ -66,7 +66,7 @@ export async function loginBegin(env) {
 export async function checkAssertion(env, cred, challenge, accountId = null) {
   if (!cred || typeof cred.id !== 'string') throw new HttpError(400, 'bad_credential');
   const pk = await env.DB.prepare('SELECT * FROM passkeys WHERE cred_id = ?').bind(str(cred.id, 'credential', { max: 1400 })).first();
-  if (!pk || (accountId && pk.account_id !== accountId)) throw new HttpError(401, 'unknown_passkey');
+  if (!pk || (accountId && pk.account_id !== accountId)) throw new HttpError(401, 'unknown_passkey', 'That passkey is not linked to this LEASH account. If you made more than one account, pick the passkey you created for the one you are signed in to.');
   const r = rp(env);
   const count = await verifyAssertion(cred, { challenge, origin: r.origin, rpId: r.rpId, alg: pk.alg, jwk: JSON.parse(pk.jwk), signCount: pk.sign_count });
   await env.DB.prepare('UPDATE passkeys SET sign_count = ?, last_used = ? WHERE cred_id = ?').bind(count, now(), pk.cred_id).run();
