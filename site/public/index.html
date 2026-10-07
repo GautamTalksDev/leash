@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LEASH: agents get tokens, not the keys</title>
+<meta name="description" content="LEASH is the credential broker for AI agents. Your agent gets scoped proxy tokens instead of real API keys, and anything irreversible is held until you approve it with your passkey.">
+<meta property="og:title" content="LEASH: agents get tokens, not the keys">
+<meta property="og:description" content="A coding agent deleted a production database and every backup in 9 seconds. LEASH makes that a phone notification instead.">
+<meta name="theme-color" content="#07080b">
+<link rel="preload" href="/fonts/geist.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/site.css">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+</head>
+<body class="landing">
+<canvas id="field" aria-hidden="true"></canvas>
+<div class="grain" aria-hidden="true"></div>
+
+<header class="top">
+  <a class="brand" href="/"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" class="ring"/><circle cx="12" cy="12" r="3.2" class="dot"/></svg>LEASH</a>
+  <nav><a href="#nine">The 9 seconds</a><a href="#demo">Try it</a><a href="#map">Irreversible map</a><a href="#pricing">Pricing</a><a class="cta-s" href="/app">Open LEASH</a></nav>
+</header>
+
+<main>
+  <section class="hero" id="hero">
+    <p class="eyebrow"><span class="live"></span>Credential broker for AI agents</p>
+    <h1 class="mega"><span class="l1">Agents get tokens.</span><span class="l2">Not the <em>keys.</em></span></h1>
+    <p class="sub">Your coding agent can ship all day. The moment it tries something it can't take back, delete a database, force push main, refund a customer, LEASH holds the call and your phone buzzes. One tap. Face ID. Decided.</p>
+    <div class="ctas"><a class="btn-x pri" href="/app">Leash your keys, free</a><a class="btn-x" href="#demo">Watch it catch one</a></div>
+    <div class="counters" aria-live="polite">
+      <div><b id="cAllowed">0</b><span>calls brokered</span></div>
+      <div><b id="cHeld" class="warn">0</b><span>irreversible calls held</span></div>
+      <div><b id="cKeys">0</b><span>real keys seen by an agent</span></div>
+    </div>
+    <p class="hint">The field behind this text is live: agents firing calls at a fake production. Green went through. Amber got leashed.</p>
+  </section>
+
+  <section class="nine" id="nine">
+    <div class="nine-sticky">
+      <p class="eyebrow">25 April 2026. PocketOS. Real.</p>
+      <div class="clock"><span id="clock">0.00</span><small>seconds</small></div>
+      <ol class="story" id="story">
+        <li data-t="0">A coding agent is fixing a credential mismatch in <b>staging</b>.</li>
+        <li data-t="2.2">It searches the repo and finds an API token in a file that has nothing to do with the task.</li>
+        <li data-t="4.6">The token was made for custom domains. It can also delete volumes.</li>
+        <li data-t="6.8">One call: <code>volumeDelete</code>. Production database. Every volume backup.</li>
+        <li data-t="9">Gone. The newest backup they could restore was three months old.</li>
+      </ol>
+      <div class="vols" id="vols" aria-hidden="true"></div>
+      <div class="rewind" id="rewind">
+        <p class="eyebrow acc">Same agent. Same token. Behind LEASH.</p>
+        <pre class="tline"><span class="d">agent </span> mutation { volumeDelete(volumeId: "vol_prod") }
+<span class="w">leash </span> <b class="stamp">HELD</b> rw.delete-mutation: deletes a volume. Cannot be undone.
+<span class="d">phone </span> Deny.   <span class="g">Production is fine. The agent asks you what it should do instead.</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="demo" id="demo">
+    <div class="demo-copy">
+      <p class="eyebrow">Try it. It's the real flow.</p>
+      <h2 class="big">Your agent asks.<br><em>You</em> decide.</h2>
+      <p>Pick what the agent tries. Watch LEASH decide, then approve or deny on the phone like you would.</p>
+      <div class="picks" id="picks"></div>
+    </div>
+    <div class="stage">
+      <div class="term"><div class="bar"><i></i><i></i><i></i><span>claude code</span></div><pre id="term"></pre></div>
+      <div class="phone" id="phone" aria-live="polite">
+        <div class="notch"></div>
+        <div class="ph-idle" id="phIdle"><b>LEASH</b><span>Nothing waiting.</span></div>
+        <div class="ph-hold" id="phHold" hidden>
+          <span class="tag">Held for you</span>
+          <div class="ph-what" id="phWhat"></div>
+          <p id="phWhy"></p>
+          <button class="ph-ok" id="phOk">Approve with Face ID</button>
+          <button class="ph-no" id="phNo">Deny</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="three">
+    <h2 class="big center">Three rules,<br>enforced <em>outside</em> the model.</h2>
+    <div class="cards">
+      <article><span class="n">01</span><h3>The agent never holds a real key</h3><p>Keys live in a vault where every secret has its own AES-256 key, wrapped by a master key. Agents get <code>lsh_</code> proxy tokens: scoped, expiring, revocable. Leak one and you leaked nothing.</p></article>
+      <article><span class="n">02</span><h3>Irreversible means held</h3><p>LEASH knows which calls on each API can't be undone, and holds them until a human approves with a passkey. An approval covers that exact request, once, for ten minutes.</p></article>
+      <article><span class="n">03</span><h3>Everything is on the record</h3><p>Every call, hold, approval and denial goes into an append-only log where each entry commits to the one before. Edit a row and the chain breaks.</p></article>
+    </div>
+  </section>
+
+  <section class="flow">
+    <h2 class="big center">Where LEASH sits</h2>
+    <svg viewBox="0 0 960 300" class="diagram" role="img" aria-label="Agent sends a proxy token to LEASH; LEASH checks policy and the irreversible map, holds or forwards with the real key to the API.">
+      <g class="node"><rect x="20" y="110" width="180" height="80" rx="14"/><text x="110" y="145">Your agent</text><text x="110" y="168" class="s">holds lsh_ token</text></g>
+      <g class="node acc"><rect x="370" y="60" width="220" height="180" rx="18"/><text x="480" y="98">LEASH</text><text x="480" y="128" class="s">policy decision</text><text x="480" y="152" class="s">irreversible map</text><text x="480" y="176" class="s">encrypted vault</text><text x="480" y="200" class="s">hash-chained audit</text></g>
+      <g class="node"><rect x="760" y="40" width="180" height="60" rx="12"/><text x="850" y="76">GitHub, Stripe, ...</text></g>
+      <g class="node warn"><rect x="760" y="200" width="180" height="60" rx="12"/><text x="850" y="236">Your phone</text></g>
+      <path class="wire" d="M200 150 H370"/><path class="wire" d="M590 120 C680 120 680 70 760 70"/><path class="wire w" d="M590 190 C680 190 680 230 760 230"/>
+      <circle r="5" class="pulse"><animateMotion dur="2.4s" repeatCount="indefinite" path="M200 150 H370"/></circle>
+      <circle r="5" class="pulse"><animateMotion dur="2.4s" begin="1.2s" repeatCount="indefinite" path="M590 120 C680 120 680 70 760 70"/></circle>
+      <circle r="5" class="pulse w"><animateMotion dur="3.6s" begin="0.6s" repeatCount="indefinite" path="M590 190 C680 190 680 230 760 230"/></circle>
+    </svg>
+  </section>
+
+  <section class="map" id="map">
+    <h2 class="big">The irreversible map</h2>
+    <p class="lead">The part nobody can copy in a weekend: every call on every API that you can't take back, versioned, each with the incident or doc that earned it a place. <span id="mapVer" class="mono"></span></p>
+    <div class="table" id="table"></div>
+  </section>
+
+  <section class="install">
+    <h2 class="big center">Sixty seconds to leash Claude Code</h2>
+    <div class="steps">
+      <div><span class="n">1</span><pre><code>npx @leash/cli login</code></pre><p>Approve the code with your passkey.</p></div>
+      <div><span class="n">2</span><pre><code>npx @leash/cli add github</code></pre><p>Paste the key once. It goes into the vault, never onto disk.</p></div>
+      <div><span class="n">3</span><pre><code>claude mcp add leash -e LEASH_TOKENS=github=lsh_... -- npx -y @leash/cli mcp</code></pre><p>Your agent now calls GitHub through LEASH.</p></div>
+    </div>
+  </section>
+
+  <section class="pricing" id="pricing">
+    <h2 class="big center">Pricing</h2>
+    <div class="tiers">
+      <div><h3>Free</h3><b>$0</b><p>1 person, 2 providers, 10k calls a month, 30 days of audit.</p></div>
+      <div class="hot"><h3>Pro</h3><b>$12<small>/mo</small></b><p>All providers, unlimited tokens, 1M calls, a year of audit, custom hold rules.</p></div>
+      <div><h3>Team</h3><b>$300<small>/mo</small></b><p>25 people, two-person approval for the scariest calls, SSO, audit export.</p></div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2 class="big center">Built like it guards production. Because it does.</h2>
+    <ul class="facts">
+      <li>Passkeys only. No passwords to phish.</li>
+      <li>A CLI session can never approve a hold: an agent on your laptop can read the CLI's files.</li>
+      <li>Envelope encryption, AAD-bound rows, keys never logged, never returned by any API.</li>
+      <li>Strict CSP with Trusted Types, HSTS preload, SameSite=Strict, CSRF headers, no CORS.</li>
+      <li>Rate limits per token and per IP (IPv6 by /64). No redirects followed upstream.</li>
+      <li>Shaped after the IETF draft "Credential Broker for Agents" (CB4A).</li>
+    </ul>
+  </section>
+
+  <section class="end">
+    <h2 class="mega small"><span>Ship with agents.</span><span>Keep <em>production.</em></span></h2>
+    <a class="btn-x pri" href="/app">Leash your keys, free</a>
+  </section>
+</main>
+<footer class="foot">LEASH, by Gautam Khosla, Ottawa. Not affiliated with GitHub, Cloudflare, Railway, Stripe or Supabase.</footer>
+<script src="/landing.js" type="module"></script>
+</body>
+</html>

@@ -1,0 +1,127 @@
+// LEASH dashboard. No innerHTML (Trusted Types enforced), no third-party code, no secrets kept in the page.
+const $ = (id) => document.getElementById(id);
+const el = (tag, props = {}, ...kids) => { const n = document.createElement(tag); Object.assign(n, props); for (const k of kids) if (k != null) n.append(k); return n; };
+const b64u = { enc: (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''), dec: (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)) };
+
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => (t.hidden = true), 4200); }
+
+async function api(method, path, body) {
+  const r = await fetch(path, { method, credentials: 'same-origin', headers: { 'x-leash': '1', ...(body !== undefined ? { 'content-type': 'application/json' } : {}) }, body: body !== undefined ? JSON.stringify(body) : undefined });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { const e = new Error(j.message || j.error || 'Request failed'); e.code = j.error; throw e; }
+  return j;
+}
+
+// ---- WebAuthn
+async function getAssertion(options) {
+  const cred = await navigator.credentials.get({ publicKey: { ...options, challenge: b64u.dec(options.challenge) } });
+  return { id: cred.id, authenticatorData: b64u.enc(cred.response.authenticatorData), clientDataJSON: b64u.enc(cred.response.clientDataJSON), signature: b64u.enc(cred.response.signature) };
+}
+/** begin -> passkey -> finish, for any ceremony that takes {challengeId, credential} */
+async function ceremony(beginPath, finishPath, extra = {}) {
+  const b = await api('POST', beginPath, extra);
+  const credential = await getAssertion(b.options);
+  return api('POST', finishPath, { ...extra, challengeId: b.challengeId, credential });
+}
+
+$('register').onclick = async () => {
+  try {
+    const name = $('name').value.trim(); if (!name) return toast('Type your name first.');
+    const b = await api('POST', '/v1/auth/register/begin', { name });
+    const o = b.options;
+    const cred = await navigator.credentials.create({ publicKey: { ...o, challenge: b64u.dec(o.challenge), user: { ...o.user, id: b64u.dec(o.user.id) } } });
+    await api('POST', '/v1/auth/register/finish', { challengeId: b.challengeId, credential: { id: cred.id, attestationObject: b64u.enc(cred.response.attestationObject), clientDataJSON: b64u.enc(cred.response.clientDataJSON) } });
+    boot();
+  } catch (e) { toast(e.message); }
+};
+$('login').onclick = async () => { try { await ceremony('/v1/auth/login/begin', '/v1/auth/login/finish'); boot(); } catch (e) { toast(e.message); } };
+$('logout').onclick = async () => { await api('POST', '/v1/auth/logout', {}); location.reload(); };
+
+// ---- data
+let meta;
+async function load() {
+  const [c, t, h, a] = await Promise.all([api('GET', '/v1/credentials'), api('GET', '/v1/tokens'), api('GET', '/v1/holds'), api('GET', '/v1/audit')]);
+  // holds
+  const H = $('holds'); H.replaceChildren();
+  $('holdCount').textContent = String(h.holds.length); $('noHolds').hidden = h.holds.length > 0;
+  for (const x of h.holds) {
+    const ok = el('button', { className: 'btn pri', textContent: 'Approve with passkey' });
+    const no = el('button', { className: 'btn dan', textContent: 'Deny' });
+    ok.onclick = async () => { try { await ceremony(`/v1/holds/${x.id}/approve/begin`, `/v1/holds/${x.id}/approve/finish`); toast('Approved. The agent can retry that exact request once.'); load(); } catch (e) { toast(e.message); } };
+    no.onclick = async () => { try { await api('POST', `/v1/holds/${x.id}/deny`, {}); toast('Denied.'); load(); } catch (e) { toast(e.message); } };
+    H.append(el('div', { className: 'hold', id: 'hold-' + x.id },
+      el('div', { className: 'what', textContent: `${x.method} ${x.host}${x.path}` }),
+      el('p', { className: 'dim', textContent: `${x.why} (rule ${x.rule}, token "${x.token_label || '?'}", ${new Date(x.created_at).toLocaleTimeString()})` }),
+      el('div', { className: 'row' }, ok, no)));
+  }
+  // creds
+  const C = $('creds'); C.replaceChildren(); const tc = $('tokCred'); tc.replaceChildren();
+  for (const x of c.credentials) {
+    const del = el('button', { className: 'btn dan', textContent: 'Delete' });
+    del.onclick = async () => { if (!confirm(`Delete ${x.label}? Tokens using it stop working.`)) return; await api('DELETE', `/v1/credentials/${x.id}`); load(); };
+    C.append(el('div', {}, el('span', {}, el('b', { textContent: x.label }), el('span', { className: 'dim', textContent: `  ${x.provider}  ...${x.hint}` })), del));
+    tc.append(el('option', { value: x.id, textContent: `${x.label} (${x.provider})` }));
+  }
+  // tokens
+  const T = $('tokens'); T.replaceChildren();
+  for (const x of t.tokens.filter((y) => !y.revoked)) {
+    const rv = el('button', { className: 'btn dan', textContent: 'Revoke' });
+    rv.onclick = async () => { await api('DELETE', `/v1/tokens/${x.id}`); load(); };
+    T.append(el('div', {}, el('span', {}, el('b', { textContent: x.label }), el('span', { className: 'dim', textContent: `  ${x.provider}, expires ${new Date(x.expires_at).toLocaleDateString()}${x.policy.unattendedIrreversible.length ? ', has pre-approvals' : ''}` })), rv));
+  }
+  // audit
+  const A = $('audit'); A.replaceChildren();
+  for (const x of a.entries.slice(0, 40)) A.append(el('div', {}, el('span', { className: 'mono', textContent: `${new Date(x.at).toLocaleString()}  ${x.action}` }), el('span', { className: 'dim mono', textContent: x.detail.path ? `${x.detail.method} ${x.detail.path}` : x.actor })));
+}
+
+async function mint(pre) {
+  try {
+    let policy;
+    const raw = $('policy').value.trim();
+    if (raw) policy = JSON.parse(raw);
+    const body = { credentialId: $('tokCred').value, label: $('tokLabel').value.trim() || 'agent', policy };
+    const r = pre ? await ceremony('/v1/tokens/passkey/begin', '/v1/tokens/passkey/finish', body) : await api('POST', '/v1/tokens', body);
+    $('newToken').hidden = false;
+    $('newTokenVal').textContent = r.token;
+    $('newTokenMcp').textContent = `claude mcp add leash -e LEASH_URL=${location.origin} -e LEASH_TOKENS=${r.provider}=${r.token} -- npx -y @leash/cli mcp`;
+    load();
+  } catch (e) { toast(e instanceof SyntaxError ? 'The policy is not valid JSON.' : e.message); }
+}
+$('mint').onclick = () => mint(false);
+$('mintPre').onclick = () => mint(true);
+$('addCred').onclick = async () => {
+  try {
+    await api('POST', '/v1/credentials', { provider: $('prov').value, label: $('credLabel').value.trim() || undefined, secret: $('secret').value.trim() });
+    $('secret').value = ''; toast('Stored in the vault.'); load();
+  } catch (e) { toast(e.message); }
+};
+$('verify').onclick = async () => { const v = await api('GET', '/v1/audit/verify'); toast(v.ok ? `Chain intact: ${v.entries} entries.` : `Chain BROKEN at entry ${v.brokenAt}.`); };
+
+// ---- deep links: #hold=<id>, #device=<code>
+function route() {
+  const hm = location.hash.match(/^#hold=([0-9a-f]{24})$/);
+  if (hm) setTimeout(() => { const n = $('hold-' + hm[1]); if (n) n.scrollIntoView({ behavior: 'smooth' }); }, 300);
+  const dm = location.hash.match(/^#device=([A-Z0-9]{4}-[A-Z0-9]{4})$/);
+  $('devicePanel').hidden = !dm;
+  if (dm) {
+    $('deviceCode').textContent = dm[1];
+    $('deviceOk').onclick = async () => { try { await ceremony('/v1/device/approve/begin', '/v1/device/approve/finish', { user_code: dm[1] }); toast('CLI signed in. You can close this.'); history.replaceState(null, '', '/app'); route(); load(); } catch (e) { toast(e.message); } };
+    $('deviceNo').onclick = () => { history.replaceState(null, '', '/app'); route(); };
+  }
+}
+window.addEventListener('hashchange', route);
+
+async function boot() {
+  try {
+    const me = await api('GET', '/v1/me');
+    $('signedOut').hidden = true; $('signedIn').hidden = false; $('logout').hidden = false;
+    $('who').textContent = me.account.name;
+    meta = meta || (await api('GET', '/v1/meta'));
+    const p = $('prov'); p.replaceChildren(...meta.providers.map((x) => el('option', { value: x.id, textContent: x.name })));
+    route(); await load();
+    clearInterval(boot.poll); boot.poll = setInterval(() => load().catch(() => {}), 5000);
+  } catch {
+    $('signedOut').hidden = false; $('signedIn').hidden = true;
+  }
+}
+boot();

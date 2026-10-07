@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LEASH</title>
+<link rel="stylesheet" href="/site.css"><link rel="stylesheet" href="/styles.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='4' fill='%23c6ff3d'/%3E%3C/svg%3E">
+</head>
+<body>
+<div class="wrap">
+  <nav><a class="logo" href="/"><i></i>LEASH</a><div class="row"><span id="who" class="dim"></span><button id="logout" class="btn" hidden>Sign out</button></div></nav>
+
+  <div id="signedOut" class="app" hidden>
+    <div class="panel">
+      <h2>Sign in with a passkey</h2>
+      <p class="dim">No passwords. Your phone, laptop or security key is your login.</p>
+      <div class="row" id="signinRow"><button id="login" class="btn pri">Sign in</button></div>
+      <label for="name">New here? Your name</label>
+      <div class="row"><input id="name" maxlength="60" autocomplete="name" placeholder="Ada"><button id="register" class="btn">Create account</button></div>
+    </div>
+  </div>
+
+  <div id="signedIn" class="app" hidden>
+    <div class="panel" id="devicePanel" hidden>
+      <h2>Sign in the LEASH CLI?</h2>
+      <p class="dim">A terminal is asking to sign in with code <b id="deviceCode" class="mono"></b>. Only approve if you just ran <span class="mono">leash login</span>.</p>
+      <div class="row"><button id="deviceOk" class="btn pri">Approve with passkey</button><button id="deviceNo" class="btn">Ignore</button></div>
+    </div>
+
+    <div class="panel"><h2>Held for you <span id="holdCount" class="pill">0</span></h2><div id="holds"></div><p id="noHolds" class="dim">Nothing waiting. Irreversible calls your agents make will show up here.</p></div>
+
+    <div class="panel">
+      <h2>Vault</h2>
+      <div id="creds" class="list"></div>
+      <label for="prov">Add a key</label>
+      <div class="row"><select id="prov"></select><input id="credLabel" maxlength="60" placeholder="Label, e.g. prod"></div>
+      <label for="secret">Key (encrypted in the vault; you will never see it again)</label>
+      <div class="row"><input id="secret" type="password" autocomplete="off" spellcheck="false"><button id="addCred" class="btn">Store</button></div>
+    </div>
+
+    <div class="panel">
+      <h2>Agent tokens</h2>
+      <div id="tokens" class="list"></div>
+      <label for="tokCred">New token for</label>
+      <div class="row"><select id="tokCred"></select><input id="tokLabel" maxlength="60" placeholder="Label, e.g. claude-code laptop"></div>
+      <label for="policy">Policy (JSON, optional)</label>
+      <textarea id="policy" spellcheck="false" placeholder='{"allow":[{"method":"GET","path":"/repos/acme/**"}],"readOnly":false}'></textarea>
+      <div class="row"><button id="mint" class="btn pri">Create token</button><button id="mintPre" class="btn">Create with pre-approved irreversible ops (passkey)</button></div>
+      <div id="newToken" hidden><label>Your token, shown once</label><div id="newTokenVal" class="secret"></div><label>Claude Code</label><div id="newTokenMcp" class="secret"></div></div>
+    </div>
+
+    <div class="panel"><h2>Audit log <button id="verify" class="btn">Verify chain</button></h2><div id="audit" class="list"></div></div>
+  </div>
+</div>
+<div id="toast" class="toast" hidden></div>
+<script src="/app/app.js" type="module"></script>
+</body>
+</html>
