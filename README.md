@@ -87,16 +87,16 @@ agent running on the same laptop can read the CLI's config file. The same goes f
 ## Quickstart
 
 ```bash
-npx @leash/cli login                      # approve the code with your passkey in the browser
-npx @leash/cli add github                 # paste the key once; it goes into the vault, never onto disk
-npx @leash/cli creds                      # note the credential id
-npx @leash/cli token <credentialId> --label "claude-code laptop"
+npx leashcli login                      # approve the code with your passkey in the browser
+npx leashcli add github                 # paste the key once; it goes into the vault, never onto disk
+npx leashcli creds                      # note the credential id
+npx leashcli token <credentialId> --label "claude-code laptop"
 ```
 
 ### Claude Code (MCP)
 
 ```bash
-claude mcp add leash -e LEASH_TOKENS=github=lsh_... -- npx -y @leash/cli mcp
+claude mcp add leash -e LEASH_TOKENS=github=lsh_... -- npx -y leashcli mcp
 ```
 
 The `leash_request` tool lets the agent call any configured API. When a call is held, the tool result tells the agent to
@@ -122,7 +122,7 @@ const gh = new Octokit({ auth: process.env.LEASH_TOKEN, baseUrl: 'https://leash.
 ### Watch holds from the terminal
 
 ```bash
-npx @leash/cli watch      # prints each held call with its approve link and rings the bell
+npx leashcli watch      # prints each held call with its approve link and rings the bell
 ```
 
 ## Policies

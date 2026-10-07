@@ -135,7 +135,7 @@ try {
     case 'token': {
       const p = flag(args, '--policy');
       const r = await api('POST', '/v1/tokens', { credentialId: args[0], label: flag(args, '--label'), ttlHours: flag(args, '--ttl') ? Number(flag(args, '--ttl')) : undefined, policy: p ? JSON.parse(readFileSync(p, 'utf8')) : undefined });
-      console.log(`${r.token}\n\nBase URL: ${r.baseUrl}\nExpires:  ${new Date(r.expiresAt).toISOString()}\n${r.note}\n\nMCP (Claude Code):\n  claude mcp add leash -e LEASH_TOKENS=${r.provider}=${r.token} -- npx -y @leash/cli mcp`);
+      console.log(`${r.token}\n\nBase URL: ${r.baseUrl}\nExpires:  ${new Date(r.expiresAt).toISOString()}\n${r.note}\n\nMCP (Claude Code):\n  claude mcp add leash -e LEASH_TOKENS=${r.provider}=${r.token} -- npx -y leashcli mcp`);
       break;
     }
     case 'revoke': await api('DELETE', `/v1/tokens/${args[0]}`); console.log('Revoked.'); break;

@@ -44,14 +44,14 @@
   <ol>
     <li><strong>Create an account</strong> at <a href="/app">/app</a> with a passkey. No password or email.</li>
     <li><strong>Sign in the CLI</strong> and approve the code it shows in the app:
-      <pre>npx @leash/cli login</pre></li>
+      <pre>npx leashcli login</pre></li>
     <li><strong>Vault a key.</strong> Paste it once; it is encrypted and never written to disk:
-      <pre>npx @leash/cli add github prod</pre></li>
+      <pre>npx leashcli add github prod</pre></li>
     <li><strong>Mint a token</strong> for your agent (or do it in the app under Agent tokens):
-      <pre>npx @leash/cli creds                      # find the key id
-npx @leash/cli token &lt;key-id&gt; --label claude-code</pre></li>
+      <pre>npx leashcli creds                      # find the key id
+npx leashcli token &lt;key-id&gt; --label claude-code</pre></li>
     <li><strong>Connect your agent.</strong> For Claude Code:
-      <pre>claude mcp add leash -e LEASH_TOKENS=github=lsh_... -- npx -y @leash/cli mcp</pre></li>
+      <pre>claude mcp add leash -e LEASH_TOKENS=github=lsh_... -- npx -y leashcli mcp</pre></li>
   </ol>
   <div class="callout">You can also do all of this in the app without the CLI. The CLI is just faster.</div>
 
@@ -67,10 +67,10 @@ npx @leash/cli token &lt;key-id&gt; --label claude-code</pre></li>
   </table>
 
   <h2 id="claude">Claude Code and MCP</h2>
-  <p><code>npx @leash/cli mcp</code> runs a local MCP server that gives your agent a request tool for each provider in <code>LEASH_TOKENS</code>. List several providers separated by commas:</p>
+  <p><code>npx leashcli mcp</code> runs a local MCP server that gives your agent a request tool for each provider in <code>LEASH_TOKENS</code>. List several providers separated by commas:</p>
   <pre>claude mcp add leash \
   -e LEASH_TOKENS=github=lsh_aaa,stripe=lsh_bbb \
-  -- npx -y @leash/cli mcp</pre>
+  -- npx -y leashcli mcp</pre>
   <p>The tool tells the agent that held calls need a human, so a well-behaved agent stops and gives you the approval link instead of looking for another way in. Any MCP client works the same way.</p>
 
   <h2 id="proxy">Calling through the proxy</h2>
@@ -90,7 +90,7 @@ Authorization: Bearer lsh_...</pre>
   "rule": "rw.delete-mutation",
   "message": "LEASH held this request because it cannot be undone..."
 }</pre>
-  <p>Open the link, check the method, host, path and reason, and approve with your passkey. Then retry the <strong>exact same request</strong> once. Run <code>npx @leash/cli watch</code> to get a terminal bell and link for every new hold.</p>
+  <p>Open the link, check the method, host, path and reason, and approve with your passkey. Then retry the <strong>exact same request</strong> once. Run <code>npx leashcli watch</code> to get a terminal bell and link for every new hold.</p>
 
   <h2 id="policy">Token policies</h2>
   <p>Each token can carry a policy that narrows what its key can do. A policy can never widen it.</p>
@@ -137,7 +137,7 @@ Authorization: Bearer lsh_...</pre>
     <tr><td><code>leash watch</code></td><td>Print and ring for each new hold.</td></tr>
     <tr><td><code>leash mcp</code></td><td>Run the MCP server for your agent.</td></tr>
   </table>
-  <p>Run any command with <code>npx @leash/cli</code>, or install it globally with <code>npm i -g @leash/cli</code>.</p>
+  <p>Run any command with <code>npx leashcli</code>, or install it globally with <code>npm i -g leashcli</code>.</p>
 
   <h2 id="api">API</h2>
   <p>Base URL <code>https://leash.gautamkhosla.com</code>. Account endpoints use your session (web cookie or CLI bearer). Web writes need the same Origin and an <code>x-leash: 1</code> header. Endpoints marked passkey only work from the web app.</p>

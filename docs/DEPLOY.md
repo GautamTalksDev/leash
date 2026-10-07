@@ -22,7 +22,7 @@ npx -y wrangler@4 deploy
 
 - Turn on hardware-key 2FA for the Cloudflare account. The master key lives in its Workers secrets.
 - Create your account at `https://<domain>/app` with a passkey.
-- `npx @leash/cli login --server https://<domain>`.
+- `npx leashcli login --server https://<domain>`.
 
 ## Rotating the master key
 
@@ -33,5 +33,5 @@ re-adding credentials.)
 ## Publishing the CLI
 
 ```bash
-cd cli && npm publish --access public      # package name @leash/cli; check availability first
+cd cli && npm publish --access public      # package name leashcli; check availability first
 ```
