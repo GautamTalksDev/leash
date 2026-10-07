@@ -81,18 +81,25 @@ export async function handle(request, env, opts = {}) {
   }
 }
 
+// Expired rows are always rejected at read time; this only tidies them away. It runs from the cron when the plan has
+// one, and otherwise on about 1 in 50 requests, after the response, so no request waits for it.
+async function sweep(env) {
+  const t = Date.now();
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM challenges WHERE expires_at < ?').bind(t),
+    env.DB.prepare('DELETE FROM sessions WHERE expires_at < ?').bind(t),
+    env.DB.prepare('DELETE FROM device_codes WHERE expires_at < ?').bind(t),
+    env.DB.prepare('DELETE FROM ratelimits WHERE reset_at < ?').bind(t),
+    env.DB.prepare("UPDATE holds SET status = 'expired' WHERE status IN ('pending','approved') AND expires_at < ?").bind(t),
+  ]);
+}
+
 export default {
   async fetch(request, env, ctx) {
+    if (Math.random() < 0.02) ctx.waitUntil(sweep(env).catch(() => {}));
     return handle(request, { ...env, __ctx: ctx });
   },
   async scheduled(event, env) {
-    const t = Date.now();
-    await env.DB.batch([
-      env.DB.prepare('DELETE FROM challenges WHERE expires_at < ?').bind(t),
-      env.DB.prepare('DELETE FROM sessions WHERE expires_at < ?').bind(t),
-      env.DB.prepare('DELETE FROM device_codes WHERE expires_at < ?').bind(t),
-      env.DB.prepare('DELETE FROM ratelimits WHERE reset_at < ?').bind(t),
-      env.DB.prepare("UPDATE holds SET status = 'expired' WHERE status IN ('pending','approved') AND expires_at < ?").bind(t),
-    ]);
+    await sweep(env);
   },
 };
