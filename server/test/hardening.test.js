@@ -208,3 +208,12 @@ test('R2-5: percent-encoded letters are decoded before matching', async () => {
   assert.equal(irreversibleRule('stripe', 'POST', canonPath('/v1/%72efunds'), '')?.id, 'st.money');
   assert.equal(canonPath('/a/b%20c'), '/a/b%20c');
 });
+test('R3: duplicate query keys are held; invalid UTF-8 is refused', async () => {
+  const dup = '{"query":"{viewer{login}}","query":"mutation{deleteRepository(input:{}){clientMutationId}}"}';
+  assert.equal(irreversibleRule('github', 'POST', '/graphql', dup)?.id, 'gh.graphql');
+  assert.ok(irreversibleRule('supabase', 'POST', '/v1/projects/p/database/query', '{"query":"select 1","query":"drop table x"}'));
+  const w = new World();
+  const { token } = await setup(w);
+  const r = await w.req('POST', '/p/github/repos/a/b/issues', { bearer: token, ...P, raw: new Uint8Array([0x7b, 0xff, 0x7d]) });
+  assert.equal(r.body.error, 'bad_body');
+});

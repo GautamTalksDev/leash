@@ -169,10 +169,14 @@ export async function proxy(env, request, provider, rest, fetcher = fetch) {
   const url = new URL(request.url);
   const body = ['GET', 'HEAD'].includes(method) ? null : new Uint8Array(await request.arrayBuffer());
   if (body && body.length > MAX_BODY) throw new HttpError(413, 'too_large');
-  const bodyText = body ? new TextDecoder().decode(body) : '';
+  // fatal: a body that is not valid UTF-8 could read one way to LEASH and another way upstream
+  let bodyText = '';
+  try { bodyText = body ? new TextDecoder('utf-8', { fatal: true }).decode(body) : ''; } catch { throw new HttpError(400, 'bad_body', 'Request body must be valid UTF-8.'); }
 
   const d = decide(policy, provider, method, path, bodyText, url.search);
-  const reqHash = await sha256hex(`${method}|${P.host}|${path}|${url.search}|${bodyText}`);
+  // An approval binds the exact bytes sent upstream, and the content-type that tells the upstream how to read them.
+  const bodyHash = body ? b64u(new Uint8Array(await crypto.subtle.digest('SHA-256', body))) : '';
+  const reqHash = await sha256hex(JSON.stringify([method, P.host, path, url.search, request.headers.get('content-type') || '', bodyHash]));
   const where = { method, host: P.host, path: path.slice(0, 300) };
   if (d.decision === 'deny') {
     await audit(env, tok.account_id, 'token:' + tok.id, 'deny', { ...where, rule: d.rule });

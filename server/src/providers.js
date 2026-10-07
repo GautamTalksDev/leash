@@ -69,7 +69,11 @@ export function sqlReadOnly(sql) {
 export const sqlDestructive = (sql) => !sqlReadOnly(sql);
 
 /** every SQL string in a request body (sql, query, batch arrays), or null when the body is unreadable or ambiguous */
+/** JSON with a repeated "query" or "sql" key: parsers disagree on which copy wins, so LEASH refuses to guess. */
+const dupKeys = (body) => { const n = (String(body || '').match(/"(query|sql|operationName)"\s*:/g) || []).length; let j; try { j = JSON.parse(body); } catch { return false; } let c = 0; const w = (o) => { if (Array.isArray(o)) return o.forEach(w); if (o && typeof o === 'object') for (const [k, v] of Object.entries(o)) { if (k === 'query' || k === 'sql' || k === 'operationName') c++; w(v); } }; w(j); return n !== c; };
+
 export function sqlBodies(body) {
+  if (dupKeys(body)) return null;
   let j;
   try { j = JSON.parse(body || ''); } catch { return null; }
   const out = [];
@@ -150,6 +154,7 @@ export function gqlMutationFields(src) {
 export const RAILWAY_SAFE = new Set(['serviceInstanceRedeploy', 'deploymentRestart', '__typename']);
 /** GitHub's GraphQL API can do everything the REST map guards (deleteRepository, transferRepository, ...). Only pure queries pass. */
 function ghGraphqlHold(body) {
+  if (dupKeys(body)) return true;
   let j;
   try { j = JSON.parse(body || ''); } catch { return true; }
   if (!j || typeof j !== 'object' || Array.isArray(j) || typeof j.query !== 'string') return true;
@@ -184,6 +189,7 @@ export function sqlSummary(sql) {
 }
 
 function railwayHold(body) {
+  if (dupKeys(body)) return true;
   let j;
   try { j = JSON.parse(body || ''); } catch { return true; }
   if (!j || typeof j !== 'object' || Array.isArray(j) || typeof j.query !== 'string') return true; // batches, persisted queries
