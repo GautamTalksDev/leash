@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Security: LEASH</title>
+<meta name="description" content="How LEASH protects the production keys it holds, mapped to OWASP, with the limits stated plainly.">
+<meta name="theme-color" content="#08090b">
+<link rel="preload" href="/fonts/geist.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/site.css">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+<div class="glow" aria-hidden="true"></div>
+<header class="nav">
+  <div class="nav-in">
+    <a class="brand" href="/"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" class="ring"/><circle cx="12" cy="12" r="3" class="dot"/></svg>LEASH</a>
+    <nav class="links"><a href="/#how">How it works</a><a href="/docs/">Docs</a><a href="/security/">Security</a><a href="/privacy/">Privacy</a><a href="/#pricing">Pricing</a></nav>
+    <div class="nav-r"><a class="lnk" href="/app">Sign in</a><a class="btn btn-pri sm" href="/app">Get started</a></div>
+  </div>
+</header>
+<main class="doc">
+<nav class="toc" aria-label="On this page">
+  <b>Security</b>
+  <a href="#model">The model</a>
+  <a href="#keys">How keys are protected</a>
+  <a href="#approvals">How approvals work</a>
+  <a href="#controls">Controls, mapped to OWASP</a>
+  <a href="#limits">What LEASH does not protect against</a>
+  <a href="#report">Report a vulnerability</a>
+</nav>
+<article class="prose">
+  <p class="kicker">Security</p>
+  <h1>How LEASH protects your keys</h1>
+  <p class="lead">LEASH holds other people's production keys. This is the honest version of how it protects them, and where it stops.</p>
+
+  <h2 id="model">The model</h2>
+  <p>Agents are powerful and they make mistakes. Prompt rules ("never delete the database") live inside the model and can be ignored, forgotten or injected away. LEASH moves the rules outside the model:</p>
+  <ol>
+    <li><strong>The agent never holds a real key.</strong> It holds an <code>lsh_</code> token that only works through LEASH, only for one provider, only within its policy, and only until it expires or you revoke it.</li>
+    <li><strong>Irreversible calls are held.</strong> LEASH checks every call against a versioned map of operations that cannot be undone. Those wait for a human.</li>
+    <li><strong>Only a passkey can release a hold.</strong> Not the agent, not the CLI, not an API key.</li>
+    <li><strong>Everything is recorded</strong> in a hash-chained log you can verify.</li>
+  </ol>
+
+  <h2 id="keys">How keys are protected</h2>
+  <ul>
+    <li><strong>Envelope encryption.</strong> Each secret gets its own random 256-bit data key and is encrypted with AES-256-GCM. The data key is encrypted (wrapped) with a master key that lives in Cloudflare's secret store, not in the database.</li>
+    <li><strong>Bound to its row.</strong> Each ciphertext is bound to its account, row and provider as authenticated data. A ciphertext copied into another account or row fails to decrypt.</li>
+    <li><strong>Write only.</strong> No endpoint returns a stored key. You see the last four characters, nothing more.</li>
+    <li><strong>Injected at the edge.</strong> The key is decrypted only for the instant LEASH forwards a permitted call, added to that one upstream request, and never logged.</li>
+    <li><strong>Fixed destinations.</strong> Each provider has a fixed upstream host. Paths are checked for traversal and encoded separators. Redirects are never followed, so a key can't be bounced somewhere else.</li>
+  </ul>
+
+  <h2 id="approvals">How approvals work</h2>
+  <ol>
+    <li>Your agent makes an irreversible call. LEASH stops it and returns <code>428 held_for_approval</code> with a link.</li>
+    <li>You open the link (or the app) and see the exact method, host, path, the rule that matched and why.</li>
+    <li>You approve with your passkey: Face ID, Touch ID, Windows Hello or a security key. The check happens on your device; LEASH only verifies a signature.</li>
+    <li>The approval covers <strong>that exact request</strong>, identified by a hash of its method, path and body, <strong>once</strong>, for <strong>ten minutes</strong>. A different request, or the same one twice, is held again.</li>
+  </ol>
+  <div class="callout warn">The CLI can sign in, add keys and mint tokens, but it can never approve a hold or pre-approve irreversible operations. An agent on your laptop can read the CLI's files, so the CLI is treated as something the agent could control.</div>
+
+  <h2 id="controls">Controls, mapped to OWASP</h2>
+  <table>
+    <tr><th>Area</th><th>Control</th><th>OWASP</th></tr>
+    <tr><td>Sign-in</td><td>Passkeys only. User verification required, origin and RP ID checked, single-use five-minute challenges, signature counters.</td><td>A07</td></tr>
+    <tr><td>Sessions</td><td><code>__Host-</code> cookie, HttpOnly, Secure, SameSite=Strict, 12 hours. CLI sessions are bearer tokens stored only as SHA-256 hashes.</td><td>A07</td></tr>
+    <tr><td>CSRF</td><td>Web writes need the same Origin and an <code>x-leash</code> header. No CORS; preflight refused.</td><td>A01</td></tr>
+    <tr><td>Authorization</td><td>Every query is scoped to your account. Other accounts' holds, tokens and keys return 404 (tested).</td><td>A01, API1</td></tr>
+    <tr><td>Privilege separation</td><td>CLI sessions cannot approve holds, pre-approve irreversible operations or delete the account.</td><td>A01, A06</td></tr>
+    <tr><td>Secrets</td><td>Envelope encryption with row-bound authenticated data. No API returns a secret; secrets never logged.</td><td>A04</td></tr>
+    <tr><td>Injection</td><td>Parameterized SQL only. Bodies size-capped and parsed as JSON only.</td><td>A05</td></tr>
+    <tr><td>SSRF</td><td>Fixed upstream host per provider, path checks, no redirects.</td><td>A01, API7</td></tr>
+    <tr><td>Abuse</td><td>Rate limits per token (default 120 a minute), per account and per IP (salted hash, IPv6 by /64).</td><td>API4</td></tr>
+    <tr><td>Browser</td><td>Strict CSP with Trusted Types, HSTS preload, COOP, CORP, frame-ancestors none, tight Permissions-Policy. No third-party scripts.</td><td>A02</td></tr>
+    <tr><td>Supply chain</td><td>Zero runtime dependencies in the Worker and the CLI. CI actions pinned by commit SHA.</td><td>A03, A08</td></tr>
+    <tr><td>Logging</td><td>Append-only, hash-chained audit log with a verify endpoint. No bodies, tokens or keys in logs.</td><td>A09</td></tr>
+    <tr><td>Agents</td><td>Excessive agency is the threat LEASH exists for. Irreversible calls are held outside the model.</td><td>LLM06</td></tr>
+  </table>
+  <p class="meta">OWASP Top 10 2025 numbering. API = OWASP API Security Top 10, LLM = OWASP Top 10 for LLM Applications.</p>
+
+  <h2 id="limits">What LEASH does not protect against</h2>
+  <ul>
+    <li><strong>A human approving something they shouldn't.</strong> The approval screen shows exactly what will happen and why. Read it.</li>
+    <li><strong>An over-scoped key used outside LEASH.</strong> Rotate the keys you give LEASH and keep them only in the vault.</li>
+    <li><strong>Calls the map doesn't know are irreversible.</strong> The map is conservative (every DELETE is held on every provider). Add <code>hold</code> rules to your policy for anything else you care about.</li>
+    <li><strong>A compromised Cloudflare account.</strong> The master key lives in Cloudflare's secret store.</li>
+  </ul>
+
+  <h2 id="report">Report a vulnerability</h2>
+  <p>Email <a href="mailto:security@gautamkhosla.com">security@gautamkhosla.com</a>. Please don't open a public issue. You'll hear back within 72 hours. Good-faith research is welcome; don't access other people's data or degrade the service.</p>
+</article>
+</main>
+<footer class="foot">
+  <div class="foot-in">
+    <a class="brand" href="/"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" class="ring"/><circle cx="12" cy="12" r="3" class="dot"/></svg>LEASH</a>
+    <div class="foot-links"><a href="/docs/">Docs</a><a href="/security/">Security</a><a href="/privacy/">Privacy</a><a href="mailto:hello@gautamkhosla.com">Contact</a></div>
+    <span class="muted">By Gautam Khosla, Ottawa. Not affiliated with GitHub, Cloudflare, Railway, Stripe or Supabase.</span>
+  </div>
+</footer>
+<script src="/doc.js" type="module"></script>
+</body>
+</html>

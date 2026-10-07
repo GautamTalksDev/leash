@@ -1,5 +1,7 @@
 // LEASH landing: live console feed, the nine-second comparison, the playable demo, the irreversible map.
 // DOM building only (Trusted Types: no innerHTML). Respects prefers-reduced-motion.
+import { liveGlow } from './glow.js';
+liveGlow();
 const $ = (id) => document.getElementById(id);
 const el = (tag, props = {}, ...kids) => { const n = document.createElement(tag); Object.assign(n, props); for (const k of kids) if (k != null) n.append(k); return n; };
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;

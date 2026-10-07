@@ -20,6 +20,7 @@ const ROUTES = [
   ['POST', /^\/v1\/device\/approve\/begin$/, 'webw', (c) => A.deviceApproveBegin(c.env, c.s, c.body)],
   ['POST', /^\/v1\/device\/approve\/finish$/, 'webw', (c) => A.deviceApproveFinish(c.env, c.s, c.body)],
   ['GET', /^\/v1\/me$/, 'session', async (c) => ({ account: await c.env.DB.prepare('SELECT id, name, created_at FROM accounts WHERE id = ?').bind(c.s.accountId).first(), kind: c.s.kind })],
+  ['POST', /^\/v1\/me\/delete$/, 'webw', (c) => deleteAccount(c.env, c.s, c.body)],
   ['GET', /^\/v1\/credentials$/, 'session', (c) => B.listCredentials(c.env, c.s)],
   ['POST', /^\/v1\/credentials$/, 'write', (c) => B.addCredential(c.env, c.s, c.body)],
   ['DELETE', new RegExp(`^/v1/credentials/${ID}$`), 'write', (c) => B.deleteCredential(c.env, c.s, c.m[1])],
@@ -35,6 +36,16 @@ const ROUTES = [
   ['GET', /^\/v1\/audit$/, 'session', async (c) => ({ entries: await auditList(c.env, c.s.accountId, Number(c.url.searchParams.get('before')) || 0) })],
   ['GET', /^\/v1\/audit\/verify$/, 'session', (c) => verifyChain(c.env, c.s.accountId)],
 ];
+
+// Erase an account and everything tied to it. Web session only (an agent holding a CLI session can't do it),
+// and the body must say {"confirm":"delete"} so a stray request can't.
+async function deleteAccount(env, s, body) {
+  if (body?.confirm !== 'delete') throw new HttpError(400, 'confirm_required', 'Send {"confirm":"delete"}.');
+  const id = s.accountId;
+  await env.DB.batch(['holds', 'tokens', 'credentials', 'audit', 'sessions', 'passkeys', 'challenges', 'device_codes'].map((t) => env.DB.prepare(`DELETE FROM ${t} WHERE account_id = ?`).bind(id))
+    .concat([env.DB.prepare('DELETE FROM accounts WHERE id = ?').bind(id)]));
+  return { deleted: true };
+}
 
 export async function handle(request, env, opts = {}) {
   const url = new URL(request.url);

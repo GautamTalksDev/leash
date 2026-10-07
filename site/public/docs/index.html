@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Docs: LEASH</title>
+<meta name="description" content="Set up LEASH, write token policies, use the proxy, the CLI and the API.">
+<meta name="theme-color" content="#08090b">
+<link rel="preload" href="/fonts/geist.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/site.css">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+<div class="glow" aria-hidden="true"></div>
+<header class="nav">
+  <div class="nav-in">
+    <a class="brand" href="/"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" class="ring"/><circle cx="12" cy="12" r="3" class="dot"/></svg>LEASH</a>
+    <nav class="links"><a href="/#how">How it works</a><a href="/docs/">Docs</a><a href="/security/">Security</a><a href="/privacy/">Privacy</a><a href="/#pricing">Pricing</a></nav>
+    <div class="nav-r"><a class="lnk" href="/app">Sign in</a><a class="btn btn-pri sm" href="/app">Get started</a></div>
+  </div>
+</header>
+<main class="doc">
+<nav class="toc" aria-label="Docs">
+  <b>Start</b>
+  <a href="#quickstart">Quickstart</a>
+  <a href="#concepts">Concepts</a>
+  <b>Use</b>
+  <a href="#claude">Claude Code and MCP</a>
+  <a href="#proxy">Calling through the proxy</a>
+  <a href="#held">When a call is held</a>
+  <a href="#policy">Token policies</a>
+  <a href="#providers">Providers and the map</a>
+  <b>Reference</b>
+  <a href="#cli">CLI</a>
+  <a href="#api">API</a>
+  <a href="#errors">Errors</a>
+</nav>
+<article class="prose">
+  <p class="kicker">Docs</p>
+  <h1>LEASH documentation</h1>
+  <p class="lead">Everything you need to put your agents behind LEASH: set up, policies, the proxy, the CLI and the API.</p>
+
+  <h2 id="quickstart">Quickstart</h2>
+  <ol>
+    <li><strong>Create an account</strong> at <a href="/app">/app</a> with a passkey. No password or email.</li>
+    <li><strong>Sign in the CLI</strong> and approve the code it shows in the app:
+      <pre>npx @leash/cli login</pre></li>
+    <li><strong>Vault a key.</strong> Paste it once; it is encrypted and never written to disk:
+      <pre>npx @leash/cli add github prod</pre></li>
+    <li><strong>Mint a token</strong> for your agent (or do it in the app under Agent tokens):
+      <pre>npx @leash/cli creds                      # find the key id
+npx @leash/cli token &lt;key-id&gt; --label claude-code</pre></li>
+    <li><strong>Connect your agent.</strong> For Claude Code:
+      <pre>claude mcp add leash -e LEASH_TOKENS=github=lsh_... -- npx -y @leash/cli mcp</pre></li>
+  </ol>
+  <div class="callout">You can also do all of this in the app without the CLI. The CLI is just faster.</div>
+
+  <h2 id="concepts">Concepts</h2>
+  <table>
+    <tr><th>Term</th><th>What it is</th></tr>
+    <tr><td>Vault</td><td>Where your real API keys live, encrypted. Keys go in and never come out.</td></tr>
+    <tr><td>Agent token</td><td>An <code>lsh_</code> token tied to one vaulted key, with a policy and an expiry (7 days by default, up to 90). This is all your agent ever sees.</td></tr>
+    <tr><td>Irreversible map</td><td>A versioned list, per provider, of calls that can't be undone. Calls on it are held.</td></tr>
+    <tr><td>Hold</td><td>A call LEASH stopped and is waiting on you to approve or deny.</td></tr>
+    <tr><td>Approval</td><td>Your passkey signing off on one held request. It lets that exact request through once, within ten minutes.</td></tr>
+    <tr><td>Audit log</td><td>An append-only, hash-chained record of every call and decision on your account.</td></tr>
+  </table>
+
+  <h2 id="claude">Claude Code and MCP</h2>
+  <p><code>npx @leash/cli mcp</code> runs a local MCP server that gives your agent a request tool for each provider in <code>LEASH_TOKENS</code>. List several providers separated by commas:</p>
+  <pre>claude mcp add leash \
+  -e LEASH_TOKENS=github=lsh_aaa,stripe=lsh_bbb \
+  -- npx -y @leash/cli mcp</pre>
+  <p>The tool tells the agent that held calls need a human, so a well-behaved agent stops and gives you the approval link instead of looking for another way in. Any MCP client works the same way.</p>
+
+  <h2 id="proxy">Calling through the proxy</h2>
+  <p>Any agent, script or SDK can use LEASH directly. Swap the provider's base URL for the LEASH proxy and the real key for your token:</p>
+  <pre>https://leash.gautamkhosla.com/p/&lt;provider&gt;/&lt;path&gt;
+Authorization: Bearer lsh_...</pre>
+  <pre>curl https://leash.gautamkhosla.com/p/github/repos/acme/app/pulls \
+  -H "Authorization: Bearer lsh_..."</pre>
+  <p>LEASH checks the call, swaps your token for the real key, forwards it to the provider and returns the response unchanged, plus an <code>x-leash-decision</code> header (<code>allowed</code> or <code>approved</code>). Cookies from upstream are stripped.</p>
+
+  <h2 id="held">When a call is held</h2>
+  <p>A held call returns <strong>HTTP 428</strong>:</p>
+  <pre>{
+  "error": "held_for_approval",
+  "hold_id": "4f2a...",
+  "approve_url": "https://leash.gautamkhosla.com/app#hold=4f2a...",
+  "rule": "rw.delete-mutation",
+  "message": "LEASH held this request because it cannot be undone..."
+}</pre>
+  <p>Open the link, check the method, host, path and reason, and approve with your passkey. Then retry the <strong>exact same request</strong> once. Run <code>npx @leash/cli watch</code> to get a terminal bell and link for every new hold.</p>
+
+  <h2 id="policy">Token policies</h2>
+  <p>Each token can carry a policy that narrows what its key can do. A policy can never widen it.</p>
+  <pre>{
+  "allow":  [{ "method": "GET", "path": "/repos/acme/**" }],
+  "deny":   [{ "path": "/orgs/**" }],
+  "hold":   [{ "method": "POST", "path": "/repos/*/*/releases" }],
+  "default": "allow",
+  "readOnly": false,
+  "perMinute": 120,
+  "unattendedIrreversible": []
+}</pre>
+  <table>
+    <tr><th>Field</th><th>Meaning</th></tr>
+    <tr><td><code>allow</code></td><td>If present, only these calls pass.</td></tr>
+    <tr><td><code>deny</code></td><td>Always refused with 403. Checked first.</td></tr>
+    <tr><td><code>hold</code></td><td>Held for approval even if the map doesn't require it.</td></tr>
+    <tr><td><code>default</code></td><td><code>allow</code>, <code>hold</code> or <code>deny</code> for calls that match no rule.</td></tr>
+    <tr><td><code>readOnly</code></td><td>Only GET and HEAD.</td></tr>
+    <tr><td><code>perMinute</code></td><td>Rate limit for this token, 1 to 600. Default 120.</td></tr>
+    <tr><td><code>unattendedIrreversible</code></td><td>Irreversible calls allowed without approval. Can only be set with your passkey, in the app.</td></tr>
+  </table>
+  <p>A rule is <code>{ "method": "GET", "path": "/glob" }</code>. <code>*</code> matches one path segment, <code>**</code> any depth, <code>{a,b}</code> alternatives. Paths are relative to the provider's API base. Evaluation order: deny, readOnly, the irreversible map, hold, allow, default.</p>
+  <h3>Recipes</h3>
+  <p>Read-only access to one GitHub org:</p>
+  <pre>{ "readOnly": true, "allow": [{ "path": "/repos/acme/**" }, { "path": "/orgs/acme/**" }] }</pre>
+  <p>Hold every write to Stripe, not just the money-moving ones:</p>
+  <pre>{ "allow": [{ "method": "GET", "path": "/v1/**" }], "default": "hold" }</pre>
+
+  <h2 id="providers">Providers and the map</h2>
+  <p>LEASH supports GitHub, Cloudflare, Railway, Stripe and Supabase. The current irreversible map, with the reason for every rule, is on the <a href="/#map">homepage</a> and at <code>GET /v1/meta</code>. Every DELETE is held on every provider, plus provider-specific calls such as force pushes, repo transfers, Railway volume deletes, Stripe refunds and payouts, Cloudflare cache purges and destructive SQL on Supabase.</p>
+
+  <h2 id="cli">CLI</h2>
+  <table>
+    <tr><th>Command</th><th>What it does</th></tr>
+    <tr><td><code>leash login</code></td><td>Sign in this machine. You approve the code in the app.</td></tr>
+    <tr><td><code>leash logout</code></td><td>Forget the session on this machine.</td></tr>
+    <tr><td><code>leash add &lt;provider&gt; [label]</code></td><td>Vault a key. Prompts for it; never written to disk.</td></tr>
+    <tr><td><code>leash creds</code></td><td>List vaulted keys (id, provider, label, last four).</td></tr>
+    <tr><td><code>leash token &lt;key-id&gt; [--label x] [--ttl hours] [--policy file.json]</code></td><td>Mint an agent token.</td></tr>
+    <tr><td><code>leash tokens</code></td><td>List active tokens.</td></tr>
+    <tr><td><code>leash revoke &lt;token-id&gt;</code></td><td>Revoke a token immediately.</td></tr>
+    <tr><td><code>leash holds</code></td><td>List calls waiting for you.</td></tr>
+    <tr><td><code>leash watch</code></td><td>Print and ring for each new hold.</td></tr>
+    <tr><td><code>leash mcp</code></td><td>Run the MCP server for your agent.</td></tr>
+  </table>
+  <p>Run any command with <code>npx @leash/cli</code>, or install it globally with <code>npm i -g @leash/cli</code>.</p>
+
+  <h2 id="api">API</h2>
+  <p>Base URL <code>https://leash.gautamkhosla.com</code>. Account endpoints use your session (web cookie or CLI bearer). Web writes need the same Origin and an <code>x-leash: 1</code> header. Endpoints marked passkey only work from the web app.</p>
+  <table>
+    <tr><th>Endpoint</th><th>Purpose</th></tr>
+    <tr><td><code>GET /v1/meta</code></td><td>Providers and the irreversible map. Public.</td></tr>
+    <tr><td><code>GET /v1/me</code></td><td>Your account.</td></tr>
+    <tr><td><code>GET, POST /v1/credentials</code></td><td>List or add vaulted keys.</td></tr>
+    <tr><td><code>DELETE /v1/credentials/:id</code></td><td>Delete a key. Its tokens stop working.</td></tr>
+    <tr><td><code>GET, POST /v1/tokens</code></td><td>List or mint agent tokens.</td></tr>
+    <tr><td><code>POST /v1/tokens/passkey/begin, /finish</code></td><td>Mint a token with pre-approved irreversible operations. Passkey.</td></tr>
+    <tr><td><code>DELETE /v1/tokens/:id</code></td><td>Revoke a token.</td></tr>
+    <tr><td><code>GET /v1/holds</code></td><td>Calls waiting for you.</td></tr>
+    <tr><td><code>POST /v1/holds/:id/approve/begin, /finish</code></td><td>Approve a hold. Passkey.</td></tr>
+    <tr><td><code>POST /v1/holds/:id/deny</code></td><td>Deny a hold.</td></tr>
+    <tr><td><code>GET /v1/audit</code>, <code>GET /v1/audit/verify</code></td><td>Read the audit log; check the hash chain.</td></tr>
+    <tr><td><code>POST /v1/me/delete</code></td><td>Delete your account and all its data. Body <code>{"confirm":"delete"}</code>. Web session only.</td></tr>
+    <tr><td><code>ANY /p/:provider/*</code></td><td>The agent proxy. Bearer <code>lsh_</code> token.</td></tr>
+  </table>
+
+  <h2 id="errors">Errors</h2>
+  <table>
+    <tr><th>Status</th><th>Error</th><th>Meaning</th></tr>
+    <tr><td>401</td><td><code>leash_token_required</code>, <code>token_invalid</code></td><td>Missing, expired or revoked token.</td></tr>
+    <tr><td>403</td><td><code>leash_denied</code></td><td>A policy deny rule or readOnly blocked the call.</td></tr>
+    <tr><td>403</td><td><code>wrong_provider</code></td><td>The token belongs to a different provider.</td></tr>
+    <tr><td>403</td><td><code>passkey_required</code></td><td>Needs the web app and your passkey.</td></tr>
+    <tr><td>403</td><td><code>csrf</code></td><td>Web write without the right Origin or <code>x-leash</code> header.</td></tr>
+    <tr><td>413</td><td><code>too_large</code></td><td>Request body over the limit.</td></tr>
+    <tr><td>428</td><td><code>held_for_approval</code></td><td>Irreversible. Approve, then retry once.</td></tr>
+    <tr><td>429</td><td><code>slow_down</code></td><td>Too many requests. The message says when to retry.</td></tr>
+  </table>
+</article>
+</main>
+<footer class="foot">
+  <div class="foot-in">
+    <a class="brand" href="/"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" class="ring"/><circle cx="12" cy="12" r="3" class="dot"/></svg>LEASH</a>
+    <div class="foot-links"><a href="/docs/">Docs</a><a href="/security/">Security</a><a href="/privacy/">Privacy</a><a href="mailto:hello@gautamkhosla.com">Contact</a></div>
+    <span class="muted">By Gautam Khosla, Ottawa. Not affiliated with GitHub, Cloudflare, Railway, Stripe or Supabase.</span>
+  </div>
+</footer>
+<script src="/doc.js" type="module"></script>
+</body>
+</html>

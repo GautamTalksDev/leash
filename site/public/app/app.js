@@ -96,6 +96,10 @@ $('addCred').onclick = async () => {
     $('secret').value = ''; toast('Stored in the vault.'); load();
   } catch (e) { toast(e.message); }
 };
+$('delConfirm').oninput = () => { $('delAccount').disabled = $('delConfirm').value.trim() !== 'delete'; };
+$('delAccount').onclick = async () => {
+  try { await api('POST', '/v1/me/delete', { confirm: 'delete' }); location.replace('/'); } catch (e) { toast(e.message); }
+};
 $('verify').onclick = async () => { const v = await api('GET', '/v1/audit/verify'); toast(v.ok ? `Chain intact: ${v.entries} entries.` : `Chain BROKEN at entry ${v.brokenAt}.`); };
 
 // ---- views

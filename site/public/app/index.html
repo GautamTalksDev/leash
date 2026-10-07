@@ -49,6 +49,7 @@
       <a href="#" data-view="vault"><span class="ico i-vault"></span>Vault</a>
       <a href="#" data-view="tokens"><span class="ico i-tok"></span>Agent tokens</a>
       <a href="#" data-view="audit"><span class="ico i-log"></span>Audit log</a>
+      <a href="#" data-view="account"><span class="ico i-acct"></span>Account</a>
     </nav>
     <div class="me"><span class="av" id="avatar">?</span><span id="who" class="who"></span><button id="logout" class="icon-btn" type="button" title="Sign out" aria-label="Sign out"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8 4H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3M12 6l4 4-4 4M16 10H8"/></svg></button></div>
   </aside>
@@ -108,6 +109,19 @@
     <section class="view" data-view="audit" hidden>
       <header class="vh"><div><h1>Audit log</h1><p class="dim">Append-only. Each entry commits to the one before it.</p></div><button id="verify" class="btn" type="button">Verify chain</button></header>
       <div class="panel"><div id="audit" class="list audit"></div></div>
+    </section>
+    <section class="view" data-view="account" hidden>
+      <header class="vh"><div><h1>Account</h1><p class="dim">Your data, and how to take it all away.</p></div></header>
+      <div class="panel form">
+        <h3>What LEASH keeps about you</h3>
+        <p class="dim small">Your name, your passkey's public key, your encrypted vault, token hashes, holds and your audit log. Never your face, fingerprint or readable keys. <a class="ul" href="/privacy/">Privacy policy</a></p>
+      </div>
+      <div class="panel form danger">
+        <h3>Delete account</h3>
+        <p class="dim small">Erases your account, passkeys, vault, tokens, holds, sessions and audit log immediately. Agents using your tokens stop working. This cannot be undone.</p>
+        <label for="delConfirm" class="lbl">Type <span class="mono">delete</span> to confirm</label>
+        <div class="row"><input id="delConfirm" autocomplete="off" spellcheck="false"><button id="delAccount" class="btn dan" type="button" disabled>Delete everything</button></div>
+      </div>
     </section>
   </main>
 </div>

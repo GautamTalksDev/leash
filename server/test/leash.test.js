@@ -218,3 +218,14 @@ test('keys that do not look like the provider are refused; vault rows cannot be 
   assert.equal(r.body.error, 'vault_error');
   assert.ok(token);
 });
+
+test('deleting your account erases keys, tokens, holds and audit; needs a web session and an explicit confirm', async () => {
+  const w = new World();
+  const { u, token } = await setup(w);
+  assert.equal((await w.req('POST', '/v1/me/delete', { cookie: u.cookie, body: {} })).body.error, 'confirm_required');
+  assert.equal((await w.req('POST', '/v1/me/delete', { cookie: u.cookie, body: { confirm: 'delete' }, xleash: false })).body.error, 'csrf');
+  const r = await w.req('POST', '/v1/me/delete', { cookie: u.cookie, body: { confirm: 'delete' } });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  for (const t of ['accounts', 'passkeys', 'credentials', 'tokens', 'holds', 'audit', 'sessions']) assert.equal(w.env.DB.raw.prepare(`SELECT count(*) n FROM ${t}`).get().n, 0, t);
+  assert.equal((await w.req('GET', '/p/github/repos/acme/app/issues', { bearer: token, origin: null, xleash: false })).status, 401);
+});
