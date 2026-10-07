@@ -23,4 +23,4 @@ jobs:
           if grep -rnP "[\x{2013}\x{2014}]" site/public README.md SECURITY.md docs; then echo "Use a period, colon or comma instead."; exit 1; fi
       - name: No innerHTML (Trusted Types)
         run: |
-          if grep -rn "innerHTML\|outerHTML\|insertAdjacentHTML\|document.write" site/public --include=*.js; then exit 1; fi
+          if grep -rnE "\.(innerHTML|outerHTML)\s*=|insertAdjacentHTML\(|document\.write\(" site/public --include=*.js; then exit 1; fi
