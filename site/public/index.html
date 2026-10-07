@@ -49,7 +49,7 @@
           <div class="main">
             <div class="main-h"><h3>Activity</h3><span class="pill-live"><span class="live"></span>Live</span></div>
             <div class="held-card">
-              <div class="hc-top"><span class="badge warn">Held</span><span class="mono muted">claude-code &middot; laptop</span><span class="mono muted r">just now</span></div>
+              <div class="hc-top"><span class="badge warn">Held</span><span class="mono muted">coding-agent &middot; laptop</span><span class="mono muted r">just now</span></div>
               <div class="hc-call mono"><b>POST</b> backboard.railway.app <span class="muted">volumeDelete("vol_prod")</span></div>
               <p class="hc-why">Deletes a volume and its backups. This cannot be undone.</p>
               <div class="hc-act"><span class="b-ok">Approve with passkey</span><span class="b-no">Deny</span></div>
@@ -60,7 +60,7 @@
       </div>
       <div class="notif">
         <div class="n-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" class="ring"/><circle cx="12" cy="12" r="3" class="dot"/></svg></div>
-        <div><div class="n-top"><b>LEASH</b><span>now</span></div><div class="n-t">Claude Code wants to delete vol_prod</div><div class="n-s">Held. Tap to review.</div></div>
+        <div><div class="n-top"><b>LEASH</b><span>now</span></div><div class="n-t">Your agent wants to delete vol_prod</div><div class="n-s">Held. Tap to review.</div></div>
       </div>
     </div>
   </section>
@@ -128,7 +128,7 @@
     <div class="demo">
       <div class="picks" id="picks"></div>
       <div class="stage">
-        <div class="term-win"><div class="win-bar"><i></i><i></i><i></i><span>claude code</span></div><pre class="term mono" id="term"></pre></div>
+        <div class="term-win"><div class="win-bar"><i></i><i></i><i></i><span>agent</span></div><pre class="term mono" id="term"></pre></div>
         <div class="phone" id="phone" aria-live="polite">
           <div class="island"></div>
           <div class="ph-time">9:41</div>
@@ -155,13 +155,19 @@
 
   <section class="sec">
     <p class="kicker">Setup</p>
-    <h2>Sixty seconds to leash Claude Code.</h2>
+    <h2>Sixty seconds to leash your agent.</h2>
     <div class="steps">
       <div class="step"><span class="num">1</span><h4>Sign in</h4><p>Approve the code on your phone with a passkey.</p><pre class="code mono">npx leashcli login</pre></div>
       <div class="step"><span class="num">2</span><h4>Vault a key</h4><p>Paste it once. It is encrypted and never written to disk.</p><pre class="code mono">npx leashcli add github</pre></div>
-      <div class="step"><span class="num">3</span><h4>Connect your agent</h4><p>Claude Code now calls GitHub through LEASH.</p><pre class="code mono">claude mcp add leash \
-  -e LEASH_TOKENS=github=lsh_... \
-  -- npx -y leashcli mcp</pre></div>
+      <div class="step"><span class="num">3</span><h4>Connect your agent</h4><p>Add LEASH to any MCP client's config. Your agent now calls GitHub through LEASH.</p><pre class="code mono">{
+  &quot;mcpServers&quot;: {
+    &quot;leash&quot;: {
+      &quot;command&quot;: &quot;npx&quot;,
+      &quot;args&quot;: [&quot;-y&quot;, &quot;leashcli&quot;, &quot;mcp&quot;],
+      &quot;env&quot;: { &quot;LEASH_TOKENS&quot;: &quot;github=lsh_...&quot; }
+    }
+  }
+}</pre></div>
     </div>
   </section>
 

@@ -14,13 +14,13 @@ $('copyCmd').onclick = async () => {
 
 // ------------------------------------------------------------ 1. hero console feed (calm: one row every ~2s, max 5)
 const FEED = [
-  ['GET', 'api.github.com/repos/acme/app/pulls', 'claude-code'],
-  ['POST', 'api.github.com/repos/acme/app/issues', 'claude-code'],
+  ['GET', 'api.github.com/repos/acme/app/pulls', 'coding-agent'],
+  ['POST', 'api.github.com/repos/acme/app/issues', 'coding-agent'],
   ['GET', 'api.stripe.com/v1/charges?limit=20', 'support-bot'],
   ['PATCH', 'api.cloudflare.com/zones/9a1/dns_records/44', 'infra-agent'],
   ['GET', 'api.supabase.com/v1/projects/abc/health', 'infra-agent'],
-  ['POST', 'api.github.com/repos/acme/app/pulls/412/reviews', 'claude-code'],
-  ['GET', 'backboard.railway.app  query { deployments }', 'claude-code'],
+  ['POST', 'api.github.com/repos/acme/app/pulls/412/reviews', 'coding-agent'],
+  ['GET', 'backboard.railway.app  query { deployments }', 'coding-agent'],
 ];
 const feed = $('feed');
 let fi = 0;
@@ -54,7 +54,7 @@ const GOOD = [
   [5.0, '', 'agent  POST backboard.railway.app'],
   [5.1, 'd', '       mutation { volumeDelete(volumeId: "vol_prod") }'],
   [5.2, 'w', 'leash  HELD  rw.mutation: cannot be undone'],
-  [6.4, 'd', 'phone  notification: "Claude Code wants to delete vol_prod"'],
+  [6.4, 'd', 'phone  notification: "Your agent wants to delete vol_prod"'],
   [8.1, 'g', 'phone  denied with Face ID'],
   [9.0, 'g', 'agent  Understood. Snapshot the volume first instead?'],
 ];

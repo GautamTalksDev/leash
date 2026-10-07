@@ -16,7 +16,7 @@ until a human approves it with a passkey.
 
 ## Why this exists
 
-On **25 April 2026**, a Cursor agent working on a staging credential mismatch searched a repo, found a Railway API token in
+On **25 April 2026**, an AI coding agent working on a staging credential mismatch searched a repo, found a Railway API token in
 an unrelated file, and called `volumeDelete`. PocketOS lost its production database **and every volume backup in nine
 seconds**. The token had been created to manage custom domains. Every prompt-level guardrail was switched on.
 ([AI Incident Database](https://incidentdatabase.ai/reports/7311), [PointGuard AI](https://pointguardai.com/ai-security-incidents/ai-agent-deletes-production-database-in-nine-seconds-and-apologizes))
@@ -34,7 +34,7 @@ Prompts are not a permission system. LEASH moves the decision out of the model:
 
 ```mermaid
 flowchart LR
-    A[AI agent<br/>Claude Code, Cursor, scripts] -- "lsh_ proxy token" --> L
+    A[AI agent<br/>any MCP client, SDK or script] -- "lsh_ proxy token" --> L
     subgraph L[LEASH Worker]
       P[Policy decision<br/>deny, read-only, allow lists]
       M[Irreversible map<br/>versioned, per API]
@@ -90,13 +90,21 @@ agent running on the same laptop can read the CLI's config file. The same goes f
 npx leashcli login                      # approve the code with your passkey in the browser
 npx leashcli add github                 # paste the key once; it goes into the vault, never onto disk
 npx leashcli creds                      # note the credential id
-npx leashcli token <credentialId> --label "claude-code laptop"
+npx leashcli token <credentialId> --label "coding agent, laptop"
 ```
 
-### Claude Code (MCP)
+### Connect your agent (MCP)
 
 ```bash
-claude mcp add leash -e LEASH_TOKENS=github=lsh_... -- npx -y leashcli mcp
+{
+  "mcpServers": {
+    "leash": {
+      "command": "npx",
+      "args": ["-y", "leashcli", "mcp"],
+      "env": { "LEASH_TOKENS": "github=lsh_..." }
+    }
+  }
+}
 ```
 
 The `leash_request` tool lets the agent call any configured API. When a call is held, the tool result tells the agent to

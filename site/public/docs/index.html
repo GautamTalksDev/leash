@@ -25,7 +25,7 @@
   <a href="#quickstart">Quickstart</a>
   <a href="#concepts">Concepts</a>
   <b>Use</b>
-  <a href="#claude">Claude Code and MCP</a>
+  <a href="#mcp">Connecting your agent (MCP)</a>
   <a href="#proxy">Calling through the proxy</a>
   <a href="#held">When a call is held</a>
   <a href="#policy">Token policies</a>
@@ -49,9 +49,8 @@
       <pre>npx leashcli add github prod</pre></li>
     <li><strong>Mint a token</strong> for your agent (or do it in the app under Agent tokens):
       <pre>npx leashcli creds                      # find the key id
-npx leashcli token &lt;key-id&gt; --label claude-code</pre></li>
-    <li><strong>Connect your agent.</strong> For Claude Code:
-      <pre>claude mcp add leash -e LEASH_TOKENS=github=lsh_... -- npx -y leashcli mcp</pre></li>
+npx leashcli token &lt;key-id&gt; --label coding-agent</pre></li>
+    <li><strong>Connect your agent.</strong> Add LEASH to your MCP client's config (see <a href="#mcp">below</a>).</li>
   </ol>
   <div class="callout">You can also do all of this in the app without the CLI. The CLI is just faster.</div>
 
@@ -66,11 +65,17 @@ npx leashcli token &lt;key-id&gt; --label claude-code</pre></li>
     <tr><td>Audit log</td><td>An append-only, hash-chained record of every call and decision on your account.</td></tr>
   </table>
 
-  <h2 id="claude">Claude Code and MCP</h2>
-  <p><code>npx leashcli mcp</code> runs a local MCP server that gives your agent a request tool for each provider in <code>LEASH_TOKENS</code>. List several providers separated by commas:</p>
-  <pre>claude mcp add leash \
-  -e LEASH_TOKENS=github=lsh_aaa,stripe=lsh_bbb \
-  -- npx -y leashcli mcp</pre>
+  <h2 id="mcp">Connecting your agent (MCP)</h2>
+  <p><code>npx leashcli mcp</code> runs a local MCP server that gives your agent a request tool for each provider in <code>LEASH_TOKENS</code>. Add it to any MCP client's server config. List several providers separated by commas:</p>
+  <pre>{
+  "mcpServers": {
+    "leash": {
+      "command": "npx",
+      "args": ["-y", "leashcli", "mcp"],
+      "env": { "LEASH_TOKENS": "github=lsh_aaa,stripe=lsh_bbb" }
+    }
+  }
+}</pre>
   <p>The tool tells the agent that held calls need a human, so a well-behaved agent stops and gives you the approval link instead of looking for another way in. Any MCP client works the same way.</p>
 
   <h2 id="proxy">Calling through the proxy</h2>

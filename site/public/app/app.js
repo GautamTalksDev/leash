@@ -85,7 +85,7 @@ async function mint(pre) {
     const r = pre ? await ceremony('/v1/tokens/passkey/begin', '/v1/tokens/passkey/finish', body) : await api('POST', '/v1/tokens', body);
     $('newToken').hidden = false;
     $('newTokenVal').textContent = r.token;
-    $('newTokenMcp').textContent = `claude mcp add leash -e LEASH_URL=${location.origin} -e LEASH_TOKENS=${r.provider}=${r.token} -- npx -y leashcli mcp`;
+    $('newTokenMcp').textContent = JSON.stringify({ mcpServers: { leash: { command: 'npx', args: ['-y', 'leashcli', 'mcp'], env: { LEASH_URL: location.origin, LEASH_TOKENS: `${r.provider}=${r.token}` } } } }, null, 2);
     load();
   } catch (e) { toast(e instanceof SyntaxError ? 'The policy is not valid JSON.' : e.message); }
 }

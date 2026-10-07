@@ -27,7 +27,7 @@
   <div class="auth-r" aria-hidden="true">
     <div class="auth-art">
       <div class="aa-card">
-        <div class="aa-top"><span class="badge warn">Held</span><span class="mono dim">claude-code</span></div>
+        <div class="aa-top"><span class="badge warn">Held</span><span class="mono dim">coding-agent</span></div>
         <div class="mono aa-call"><b>DELETE</b> /repos/acme/app</div>
         <p class="dim">Deletes the repository. This cannot be undone.</p>
         <div class="aa-act"><span class="b-ok">Approve with passkey</span><span class="b-no">Deny</span></div>
@@ -94,14 +94,14 @@
         <h3>New token</h3>
         <div class="grid">
           <div><label for="tokCred" class="lbl">Uses key</label><select id="tokCred"></select></div>
-          <div><label for="tokLabel" class="lbl">Label</label><input id="tokLabel" maxlength="60" placeholder="claude-code laptop"></div>
+          <div><label for="tokLabel" class="lbl">Label</label><input id="tokLabel" maxlength="60" placeholder="coding agent, laptop"></div>
         </div>
         <label for="policy" class="lbl">Policy <span class="dim">(JSON, optional)</span></label>
         <textarea id="policy" spellcheck="false" placeholder='{"allow":[{"method":"GET","path":"/repos/acme/**"}],"readOnly":false}'></textarea>
         <div class="actions"><button id="mint" class="btn pri" type="button">Create token</button><button id="mintPre" class="btn" type="button">Create with pre-approved irreversible ops</button></div>
         <div id="newToken" class="reveal-box" hidden>
           <label class="lbl">Your token, shown once</label><div id="newTokenVal" class="secret mono"></div>
-          <label class="lbl">Add to Claude Code</label><div id="newTokenMcp" class="secret mono"></div>
+          <label class="lbl">Add to your agent (MCP config)</label><div id="newTokenMcp" class="secret mono"></div>
         </div>
       </div>
     </section>
