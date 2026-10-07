@@ -43,21 +43,22 @@ async function load() {
   const [c, t, h, a] = await Promise.all([api('GET', '/v1/credentials'), api('GET', '/v1/tokens'), api('GET', '/v1/holds'), api('GET', '/v1/audit')]);
   // holds
   const H = $('holds'); H.replaceChildren();
-  $('holdCount').textContent = String(h.holds.length); $('noHolds').hidden = h.holds.length > 0;
+  $('holdCount').textContent = String(h.holds.length); $('holdCount').classList.toggle('hot', h.holds.length > 0);
   for (const x of h.holds) {
     const ok = el('button', { className: 'btn pri', textContent: 'Approve with passkey' });
     const no = el('button', { className: 'btn dan', textContent: 'Deny' });
     ok.onclick = async () => { try { await ceremony(`/v1/holds/${x.id}/approve/begin`, `/v1/holds/${x.id}/approve/finish`); toast('Approved. The agent can retry that exact request once.'); load(); } catch (e) { toast(e.message); } };
     no.onclick = async () => { try { await api('POST', `/v1/holds/${x.id}/deny`, {}); toast('Denied.'); load(); } catch (e) { toast(e.message); } };
     H.append(el('div', { className: 'hold', id: 'hold-' + x.id },
+      el('div', { className: 'hold-top' }, el('span', { className: 'badge warn', textContent: 'Held' }), el('span', { className: 'dim mono', textContent: `${x.token_label || 'agent'}  ${new Date(x.created_at).toLocaleTimeString()}` })),
       el('div', { className: 'what', textContent: `${x.method} ${x.host}${x.path}` }),
-      el('p', { className: 'dim', textContent: `${x.why} (rule ${x.rule}, token "${x.token_label || '?'}", ${new Date(x.created_at).toLocaleTimeString()})` }),
+      el('p', { className: 'dim', textContent: `${x.why} Rule ${x.rule}.` }),
       el('div', { className: 'row' }, ok, no)));
   }
   // creds
   const C = $('creds'); C.replaceChildren(); const tc = $('tokCred'); tc.replaceChildren();
   for (const x of c.credentials) {
-    const del = el('button', { className: 'btn dan', textContent: 'Delete' });
+    const del = el('button', { className: 'btn sm dan', textContent: 'Delete' });
     del.onclick = async () => { if (!confirm(`Delete ${x.label}? Tokens using it stop working.`)) return; await api('DELETE', `/v1/credentials/${x.id}`); load(); };
     C.append(el('div', {}, el('span', {}, el('b', { textContent: x.label }), el('span', { className: 'dim', textContent: `  ${x.provider}  ...${x.hint}` })), del));
     tc.append(el('option', { value: x.id, textContent: `${x.label} (${x.provider})` }));
@@ -65,7 +66,7 @@ async function load() {
   // tokens
   const T = $('tokens'); T.replaceChildren();
   for (const x of t.tokens.filter((y) => !y.revoked)) {
-    const rv = el('button', { className: 'btn dan', textContent: 'Revoke' });
+    const rv = el('button', { className: 'btn sm dan', textContent: 'Revoke' });
     rv.onclick = async () => { await api('DELETE', `/v1/tokens/${x.id}`); load(); };
     T.append(el('div', {}, el('span', {}, el('b', { textContent: x.label }), el('span', { className: 'dim', textContent: `  ${x.provider}, expires ${new Date(x.expires_at).toLocaleDateString()}${x.policy.unattendedIrreversible.length ? ', has pre-approvals' : ''}` })), rv));
   }
@@ -97,9 +98,17 @@ $('addCred').onclick = async () => {
 };
 $('verify').onclick = async () => { const v = await api('GET', '/v1/audit/verify'); toast(v.ok ? `Chain intact: ${v.entries} entries.` : `Chain BROKEN at entry ${v.brokenAt}.`); };
 
+// ---- views
+function show(view) {
+  for (const s of document.querySelectorAll('.view')) s.hidden = s.dataset.view !== view;
+  for (const a of document.querySelectorAll('#snav a')) a.classList.toggle('on', a.dataset.view === view);
+}
+for (const a of document.querySelectorAll('#snav a')) a.onclick = (e) => { e.preventDefault(); show(a.dataset.view); };
+
 // ---- deep links: #hold=<id>, #device=<code>
 function route() {
   const hm = location.hash.match(/^#hold=([0-9a-f]{24})$/);
+  if (hm) show('holds');
   if (hm) setTimeout(() => { const n = $('hold-' + hm[1]); if (n) n.scrollIntoView({ behavior: 'smooth' }); }, 300);
   const dm = location.hash.match(/^#device=([A-Z0-9]{4}-[A-Z0-9]{4})$/);
   $('devicePanel').hidden = !dm;
@@ -116,6 +125,7 @@ async function boot() {
     const me = await api('GET', '/v1/me');
     $('signedOut').hidden = true; $('signedIn').hidden = false; $('logout').hidden = false;
     $('who').textContent = me.account.name;
+    $('avatar').textContent = (me.account.name.trim()[0] || '?').toUpperCase();
     meta = meta || (await api('GET', '/v1/meta'));
     const p = $('prov'); p.replaceChildren(...meta.providers.map((x) => el('option', { value: x.id, textContent: x.name })));
     route(); await load();
