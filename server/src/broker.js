@@ -117,6 +117,33 @@ export async function denyHold(env, sess, holdId) {
 const PASS_REQ = ['accept', 'accept-language', 'content-type', 'user-agent', 'if-none-match', 'if-match', 'idempotency-key', 'stripe-version', 'x-github-api-version', 'prefer', 'range'];
 const DROP_RESP = new Set(['set-cookie', 'set-cookie2', 'alt-svc', 'strict-transport-security', 'content-encoding', 'content-length', 'transfer-encoding', 'connection']);
 
+/** One canonical path, used for matching and sent upstream unchanged: no traversal, no encoded slashes or dots that
+ * could escape the provider base, no empty segments, and one trailing slash dropped so /x and /x/ are the same path. */
+export function canonPath(p) {
+  if (/(^|\/)\.\.?(\/|$)/.test(p) || /%2f|%5c|%2e/i.test(p) || /[\\\s]/.test(p) || p.length > 2000) throw new HttpError(400, 'bad_path');
+  const c = p.length > 1 && p.endsWith('/') ? p.slice(0, -1) : p;
+  if (c.includes('//')) throw new HttpError(400, 'bad_path');
+  return c;
+}
+
+/** What the approver sees: the query string, any SQL or GraphQL in the body, then the body itself, capped at 2 KB. */
+const PREVIEW = 2048;
+export function preview(search, text) {
+  const parts = [];
+  if (search) parts.push(search);
+  const walk = (o) => {
+    if (Array.isArray(o)) return o.forEach(walk);
+    if (!o || typeof o !== 'object') return;
+    for (const k of ['sql', 'query']) if (typeof o[k] === 'string') parts.push(o[k]);
+    if (o.batch) walk(o.batch);
+  };
+  try { walk(JSON.parse(text)); } catch { /* not JSON: the raw body below is all there is */ }
+  if (text) parts.push(text);
+  const s = parts.join('\n\n');
+  if (!s) return null;
+  return s.length > PREVIEW ? s.slice(0, PREVIEW - 12) + '\n[truncated]' : s;
+}
+
 export async function proxy(env, request, provider, rest, fetcher = fetch) {
   const P = PROVIDERS[provider];
   if (!P) throw new HttpError(404, 'unknown_provider');
@@ -133,14 +160,13 @@ export async function proxy(env, request, provider, rest, fetcher = fetch) {
   const method = request.method.toUpperCase();
   if (!['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) throw new HttpError(405, 'method');
   // path: no traversal, no encoded slashes or dots that could escape the provider base
-  const path = '/' + rest;
-  if (/(^|\/)\.\.?(\/|$)/.test(path) || /%2f|%5c|%2e/i.test(path) || /[\\\s]/.test(path) || path.length > 2000) throw new HttpError(400, 'bad_path');
+  const path = canonPath('/' + rest);
   const url = new URL(request.url);
   const body = ['GET', 'HEAD'].includes(method) ? null : new Uint8Array(await request.arrayBuffer());
   if (body && body.length > MAX_BODY) throw new HttpError(413, 'too_large');
   const bodyText = body ? new TextDecoder().decode(body) : '';
 
-  const d = decide(policy, provider, method, path, bodyText);
+  const d = decide(policy, provider, method, path, bodyText, url.search);
   const reqHash = await sha256hex(`${method}|${P.host}|${path}|${url.search}|${bodyText}`);
   const where = { method, host: P.host, path: path.slice(0, 300) };
   if (d.decision === 'deny') {
@@ -155,9 +181,10 @@ export async function proxy(env, request, provider, rest, fetcher = fetch) {
       let h = await env.DB.prepare("SELECT id, expires_at FROM holds WHERE token_id = ? AND req_hash = ? AND status = 'pending' AND expires_at > ?").bind(tok.id, reqHash, now()).first();
       if (!h) {
         h = { id: randomId(), expires_at: now() + HOLD_TTL };
-        await env.DB.prepare('INSERT INTO holds (id, account_id, token_id, req_hash, method, host, path, rule, why, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-          .bind(h.id, tok.account_id, tok.id, reqHash, method, P.host, where.path, d.rule, d.why, now(), h.expires_at).run();
-        await audit(env, tok.account_id, 'token:' + tok.id, 'hold', { ...where, rule: d.rule, hold: h.id });
+        const pv = preview(url.search, bodyText);
+        await env.DB.prepare('INSERT INTO holds (id, account_id, token_id, req_hash, method, host, path, rule, why, created_at, expires_at, preview) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+          .bind(h.id, tok.account_id, tok.id, reqHash, method, P.host, where.path, d.rule, d.why, now(), h.expires_at, pv).run();
+        await audit(env, tok.account_id, 'token:' + tok.id, 'hold', { ...where, rule: d.rule, hold: h.id, preview: pv });
       }
       const approveUrl = `${rp(env).origin}/app#hold=${h.id}`;
       return json({

@@ -20,10 +20,12 @@ const ROUTES = [
   ['POST', /^\/v1\/device\/approve\/begin$/, 'webw', (c) => A.deviceApproveBegin(c.env, c.s, c.body)],
   ['POST', /^\/v1\/device\/approve\/finish$/, 'webw', (c) => A.deviceApproveFinish(c.env, c.s, c.body)],
   ['GET', /^\/v1\/me$/, 'session', async (c) => ({ account: await c.env.DB.prepare('SELECT id, name, created_at FROM accounts WHERE id = ?').bind(c.s.accountId).first(), kind: c.s.kind })],
-  ['POST', /^\/v1\/me\/delete$/, 'webw', (c) => deleteAccount(c.env, c.s, c.body)],
+  ['POST', /^\/v1\/me\/delete\/begin$/, 'webw', (c) => deleteBegin(c.env, c.s)],
+  ['POST', /^\/v1\/me\/delete\/finish$/, 'webw', (c) => deleteAccount(c.env, c.s, c.body)],
   ['GET', /^\/v1\/credentials$/, 'session', (c) => B.listCredentials(c.env, c.s)],
   ['POST', /^\/v1\/credentials$/, 'write', (c) => B.addCredential(c.env, c.s, c.body)],
-  ['DELETE', new RegExp(`^/v1/credentials/${ID}$`), 'write', (c) => B.deleteCredential(c.env, c.s, c.m[1])],
+  // deleting a vaulted key breaks every token on it; an agent holding a CLI session must not be able to do that
+  ['DELETE', new RegExp(`^/v1/credentials/${ID}$`), 'webw', (c) => B.deleteCredential(c.env, c.s, c.m[1])],
   ['GET', /^\/v1\/tokens$/, 'session', (c) => B.listTokens(c.env, c.s)],
   ['POST', /^\/v1\/tokens$/, 'write', (c) => B.mintToken(c.env, c.s, c.body, false)],
   ['POST', /^\/v1\/tokens\/passkey\/begin$/, 'webw', (c) => B.mintBegin(c.env, c.s)],
@@ -37,10 +39,17 @@ const ROUTES = [
   ['GET', /^\/v1\/audit\/verify$/, 'session', (c) => verifyChain(c.env, c.s.accountId)],
 ];
 
-// Erase an account and everything tied to it. Web session only (an agent holding a CLI session can't do it),
-// and the body must say {"confirm":"delete"} so a stray request can't.
+// Erase an account and everything tied to it. Web session only (an agent holding a CLI session can't do it), a fresh
+// passkey ceremony (a stolen cookie alone can't), and the body must say {"confirm":"delete"} so a stray request can't.
+async function deleteBegin(env, s) {
+  const { id, challenge } = await A.newChallenge(env, 'delete', s.accountId);
+  return { challengeId: id, options: { challenge, rpId: A.rp(env).rpId, userVerification: 'required', timeout: 300000 } };
+}
 async function deleteAccount(env, s, body) {
   if (body?.confirm !== 'delete') throw new HttpError(400, 'confirm_required', 'Send {"confirm":"delete"}.');
+  const ch = await A.takeChallenge(env, body.challengeId, 'delete');
+  if (ch.account_id !== s.accountId) throw new HttpError(403, 'forbidden');
+  await A.checkAssertion(env, body.credential, ch.challenge, s.accountId);
   const id = s.accountId;
   await env.DB.batch(['holds', 'tokens', 'credentials', 'audit', 'sessions', 'passkeys', 'challenges', 'device_codes'].map((t) => env.DB.prepare(`DELETE FROM ${t} WHERE account_id = ?`).bind(id))
     .concat([env.DB.prepare('DELETE FROM accounts WHERE id = ?').bind(id)]));

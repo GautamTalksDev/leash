@@ -52,6 +52,7 @@ async function load() {
     H.append(el('div', { className: 'hold', id: 'hold-' + x.id },
       el('div', { className: 'hold-top' }, el('span', { className: 'badge warn', textContent: 'Held' }), el('span', { className: 'dim mono', textContent: `${x.token_label || 'agent'}  ${new Date(x.created_at).toLocaleTimeString()}` })),
       el('div', { className: 'what', textContent: `${x.method} ${x.host}${x.path}` }),
+      x.preview ? el('pre', { className: 'preview mono', textContent: x.preview }) : null,
       el('p', { className: 'dim', textContent: `${x.why} Rule ${x.rule}.` }),
       el('div', { className: 'row' }, ok, no)));
   }
@@ -98,7 +99,7 @@ $('addCred').onclick = async () => {
 };
 $('delConfirm').oninput = () => { $('delAccount').disabled = $('delConfirm').value.trim() !== 'delete'; };
 $('delAccount').onclick = async () => {
-  try { await api('POST', '/v1/me/delete', { confirm: 'delete' }); location.replace('/'); } catch (e) { toast(e.message); }
+  try { await ceremony('/v1/me/delete/begin', '/v1/me/delete/finish', { confirm: 'delete' }); location.replace('/'); } catch (e) { toast(e.message); }
 };
 $('verify').onclick = async () => { const v = await api('GET', '/v1/audit/verify'); toast(v.ok ? `Chain intact: ${v.entries} entries.` : `Chain BROKEN at entry ${v.brokenAt}.`); };
 

@@ -1,7 +1,7 @@
 // Token policy. A token can only narrow what its credential can do; it never widens it.
 // Order: deny > irreversible map (held unless pre-approved by a passkey holder) > hold > allow > default.
 import { HttpError } from './util.js';
-import { globMatch, irreversibleRule } from './providers.js';
+import { globMatch, irreversibleRule, matchPath, PROVIDERS } from './providers.js';
 
 const METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'];
 
@@ -12,8 +12,9 @@ function rules(list, name) {
     if (!r || typeof r !== 'object') throw new HttpError(400, 'bad_policy');
     const m = r.method === undefined ? '*' : String(r.method).toUpperCase();
     if (m !== '*' && !METHODS.includes(m)) throw new HttpError(400, 'bad_policy', `unknown method ${m}`);
-    if (typeof r.path !== 'string' || !r.path.startsWith('/') || r.path.length > 300 || /[\s\\]/.test(r.path)) throw new HttpError(400, 'bad_policy', 'path must be a glob starting with /');
-    return { method: m, path: r.path };
+    if (typeof r.path !== 'string' || !r.path.startsWith('/') || r.path.length > 300 || /[\s\\]/.test(r.path) || r.path.includes('//')) throw new HttpError(400, 'bad_policy', 'path must be a glob starting with /');
+    // same canonical form as request paths: one trailing slash dropped
+    return { method: m, path: r.path.length > 1 && r.path.endsWith('/') ? r.path.slice(0, -1) : r.path };
   });
 }
 
@@ -36,13 +37,16 @@ export function normalisePolicy(p, byPasskey) {
   return out;
 }
 
-const hit = (list, method, path) => list.some((r) => (r.method === '*' || r.method === method) && globMatch(r.path, path));
+// on case-insensitive providers both the path and the rule are lowercased, so /repos/Acme/App cannot dodge /repos/acme/*
+const hitRaw = (list, method, path, ci) => list.some((r) => (r.method === '*' || r.method === method) && globMatch(ci ? r.path.toLowerCase() : r.path, path));
 
-/** -> {decision: 'allow'|'deny'|'hold', rule, why} */
-export function decide(policy, provider, method, path, body) {
+/** -> {decision: 'allow'|'deny'|'hold', rule, why}. `path` must be canonical (see broker.js canonPath). */
+export function decide(policy, provider, method, canon, body, search = '') {
+  const ci = !!PROVIDERS[provider]?.ci, path = matchPath(provider, canon);
+  const hit = (list, m, p) => hitRaw(list, m, p, ci);
   if (hit(policy.deny, method, path)) return { decision: 'deny', rule: 'policy.deny', why: 'This token is not allowed to call this endpoint.' };
   if (policy.readOnly && !['GET', 'HEAD'].includes(method)) return { decision: 'deny', rule: 'policy.readOnly', why: 'This token is read-only.' };
-  const irr = irreversibleRule(provider, method, path, body);
+  const irr = irreversibleRule(provider, method, canon, body, search);
   if (irr) {
     if (hit(policy.unattendedIrreversible, method, path)) return { decision: 'allow', rule: irr.id + ':preapproved', why: irr.why };
     return { decision: 'hold', rule: irr.id, why: irr.why };

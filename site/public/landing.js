@@ -53,7 +53,7 @@ const GOOD = [
   [3.2, 'k', 'agent  found lsh_ token (scoped: staging, read+deploy)'],
   [5.0, '', 'agent  POST backboard.railway.app'],
   [5.1, 'd', '       mutation { volumeDelete(volumeId: "vol_prod") }'],
-  [5.2, 'w', 'leash  HELD  rw.delete-mutation: cannot be undone'],
+  [5.2, 'w', 'leash  HELD  rw.mutation: cannot be undone'],
   [6.4, 'd', 'phone  notification: "Claude Code wants to delete vol_prod"'],
   [8.1, 'g', 'phone  denied with Face ID'],
   [9.0, 'g', 'agent  Understood. Snapshot the volume first instead?'],
@@ -83,7 +83,7 @@ $('replay').onclick = playNine;
 // ------------------------------------------------------------ 3. the playable demo
 const SC = [
   { label: 'List open pull requests', sub: 'GitHub, read only', kind: 'allow', call: 'GET api.github.com/repos/acme/app/pulls?state=open', reply: '200  12 open pull requests' },
-  { label: 'Delete the staging volume', sub: 'Railway, the PocketOS call', kind: 'hold', call: 'POST backboard.railway.app  mutation { volumeDelete(volumeId: "vol_prod") }', what: 'Delete volume vol_prod', why: 'Deletes a volume and its backups. This cannot be undone.', rule: 'rw.delete-mutation' },
+  { label: 'Delete the staging volume', sub: 'Railway, the PocketOS call', kind: 'hold', call: 'POST backboard.railway.app  mutation { volumeDelete(volumeId: "vol_prod") }', what: 'Delete volume vol_prod', why: 'Deletes a volume and its backups. This cannot be undone.', rule: 'rw.mutation' },
   { label: 'Force push a rewritten main', sub: 'GitHub, history rewrite', kind: 'hold', call: 'PATCH api.github.com/repos/acme/app/git/refs/heads/main  {"force":true}', what: 'Force push acme/app main', why: 'Rewrites history for everyone on the repo.', rule: 'gh.force-push' },
   { label: 'Clean up old users', sub: 'Supabase SQL', kind: 'hold', call: 'POST api.supabase.com/v1/projects/abc/database/query  DELETE FROM users', what: 'DELETE FROM users', why: 'No WHERE clause. This removes every row.', rule: 'sb.sql' },
   { label: 'Refund the last 40 orders', sub: 'Stripe, moves money', kind: 'hold', call: 'POST api.stripe.com/v1/refunds  x40', what: 'Refund 40 charges', why: 'Moves money back to customers. Not reversible.', rule: 'st.money' },

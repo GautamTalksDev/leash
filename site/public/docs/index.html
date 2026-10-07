@@ -87,10 +87,10 @@ Authorization: Bearer lsh_...</pre>
   "error": "held_for_approval",
   "hold_id": "4f2a...",
   "approve_url": "https://leash.gautamkhosla.com/app#hold=4f2a...",
-  "rule": "rw.delete-mutation",
+  "rule": "rw.mutation",
   "message": "LEASH held this request because it cannot be undone..."
 }</pre>
-  <p>Open the link, check the method, host, path and reason, and approve with your passkey. Then retry the <strong>exact same request</strong> once. Run <code>npx leashcli watch</code> to get a terminal bell and link for every new hold.</p>
+  <p>Open the link, check the method, host, path, reason and the request preview, and approve with your passkey. Then retry the <strong>exact same request</strong> once. Run <code>npx leashcli watch</code> to get a terminal bell and link for every new hold.</p>
 
   <h2 id="policy">Token policies</h2>
   <p>Each token can carry a policy that narrows what its key can do. A policy can never widen it.</p>
@@ -121,7 +121,7 @@ Authorization: Bearer lsh_...</pre>
   <pre>{ "allow": [{ "method": "GET", "path": "/v1/**" }], "default": "hold" }</pre>
 
   <h2 id="providers">Providers and the map</h2>
-  <p>LEASH supports GitHub, Cloudflare, Railway, Stripe and Supabase. The current irreversible map, with the reason for every rule, is on the <a href="/#map">homepage</a> and at <code>GET /v1/meta</code>. Every DELETE is held on every provider, plus provider-specific calls such as force pushes, repo transfers, Railway volume deletes, Stripe refunds and payouts, Cloudflare cache purges and destructive SQL on Supabase.</p>
+  <p>LEASH supports GitHub, Cloudflare, Railway, Stripe and Supabase. The current irreversible map, with the reason for every rule, is on the <a href="/#map">homepage</a> and at <code>GET /v1/meta</code>. Every DELETE is held on every provider, plus provider-specific calls such as force pushes, repo transfers, Railway volume deletes, Stripe refunds and payouts, Cloudflare cache purges, and any SQL on Supabase or D1 that is not a single plain read (SELECT, WITH ... SELECT, EXPLAIN without ANALYZE, SHOW). Railway mutations are held unless every field is a redeploy or restart. Paths are matched in one canonical form (no empty segments, one trailing slash dropped, GitHub owner and repo lowercased) and that same path is sent upstream. A body LEASH cannot read on a route with a body rule is held.</p>
 
   <h2 id="cli">CLI</h2>
   <table>
@@ -146,15 +146,15 @@ Authorization: Bearer lsh_...</pre>
     <tr><td><code>GET /v1/meta</code></td><td>Providers and the irreversible map. Public.</td></tr>
     <tr><td><code>GET /v1/me</code></td><td>Your account.</td></tr>
     <tr><td><code>GET, POST /v1/credentials</code></td><td>List or add vaulted keys.</td></tr>
-    <tr><td><code>DELETE /v1/credentials/:id</code></td><td>Delete a key. Its tokens stop working.</td></tr>
+    <tr><td><code>DELETE /v1/credentials/:id</code></td><td>Delete a key. Its tokens stop working. Web session only.</td></tr>
     <tr><td><code>GET, POST /v1/tokens</code></td><td>List or mint agent tokens.</td></tr>
     <tr><td><code>POST /v1/tokens/passkey/begin, /finish</code></td><td>Mint a token with pre-approved irreversible operations. Passkey.</td></tr>
     <tr><td><code>DELETE /v1/tokens/:id</code></td><td>Revoke a token.</td></tr>
-    <tr><td><code>GET /v1/holds</code></td><td>Calls waiting for you.</td></tr>
+    <tr><td><code>GET /v1/holds</code></td><td>Calls waiting for you, each with a <code>preview</code> of what it would do (query string, SQL or GraphQL, body; at most 2 KB).</td></tr>
     <tr><td><code>POST /v1/holds/:id/approve/begin, /finish</code></td><td>Approve a hold. Passkey.</td></tr>
     <tr><td><code>POST /v1/holds/:id/deny</code></td><td>Deny a hold.</td></tr>
     <tr><td><code>GET /v1/audit</code>, <code>GET /v1/audit/verify</code></td><td>Read the audit log; check the hash chain.</td></tr>
-    <tr><td><code>POST /v1/me/delete</code></td><td>Delete your account and all its data. Body <code>{"confirm":"delete"}</code>. Web session only.</td></tr>
+    <tr><td><code>POST /v1/me/delete/begin, /finish</code></td><td>Delete your account and all its data. Passkey. Finish body <code>{"confirm":"delete", challengeId, credential}</code>. Web session only.</td></tr>
     <tr><td><code>ANY /p/:provider/*</code></td><td>The agent proxy. Bearer <code>lsh_</code> token.</td></tr>
   </table>
 

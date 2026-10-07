@@ -114,6 +114,7 @@ input::placeholder,textarea::placeholder{color:var(--mute)}
 .hold-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:12px}
 .hold .what{font-family:var(--mono);font-size:14px;word-break:break-all}
 .hold>p{margin:6px 0 14px;font-size:13.5px}
+.hold .preview{margin:10px 0 0;padding:10px 12px;max-height:220px;overflow:auto;white-space:pre-wrap;word-break:break-all;font-size:12px;line-height:1.5;color:var(--ink);background:var(--bg);border:1px solid var(--line2);border-radius:10px}
 .empty{border:1px dashed var(--line2);border-radius:16px;padding:56px 24px;text-align:center}
 .empty svg{width:44px;height:44px}
 .empty h3{margin-top:14px;font-size:16px;font-weight:600}

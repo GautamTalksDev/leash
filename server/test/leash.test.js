@@ -107,13 +107,16 @@ test('PocketOS replay: a Railway volumeDelete mutation is held, ordinary mutatio
   assert.equal(w.upstream.length, 2);
 });
 
-test('destructive SQL to Supabase is held; normal SQL is not', async () => {
+test('SQL to Supabase is held unless it is a single plain read', async () => {
   const w = new World();
   const { token } = await setup(w, 'supabase', 'sbp_' + 'a'.repeat(40));
   const sql = (q) => w.req('POST', '/p/supabase/v1/projects/abc/database/query', { bearer: token, origin: null, xleash: false, body: { query: q } });
   for (const bad of ['DROP TABLE users', 'select 1; truncate orders', 'DELETE FROM users', 'update users set admin = true', 'alter table users drop column email', 'ALTER TABLE t DISABLE ROW LEVEL SECURITY'])
     assert.equal((await sql(bad)).status, 428, bad);
-  for (const good of ['select * from users where id = 1', 'delete from sessions where expires_at < now()', 'update users set name = $1 where id = $2', 'insert into logs values (1)'])
+  // Since map 2026-10-07.2 SQL is an allow list: writes with a WHERE used to pass, now every write waits for a human.
+  for (const write of ['delete from sessions where expires_at < now()', 'update users set name = $1 where id = $2', 'insert into logs values (1)'])
+    assert.equal((await sql(write)).status, 428, write);
+  for (const good of ['select * from users where id = 1', 'with a as (select 1) select * from a', 'explain select 1', 'show search_path', 'select 1;'])
     assert.equal((await sql(good)).status, 200, good);
 });
 
@@ -219,12 +222,17 @@ test('keys that do not look like the provider are refused; vault rows cannot be 
   assert.ok(token);
 });
 
-test('deleting your account erases keys, tokens, holds and audit; needs a web session and an explicit confirm', async () => {
+test('deleting your account erases keys, tokens, holds and audit; needs a web session, a passkey and an explicit confirm', async () => {
   const w = new World();
   const { u, token } = await setup(w);
-  assert.equal((await w.req('POST', '/v1/me/delete', { cookie: u.cookie, body: {} })).body.error, 'confirm_required');
-  assert.equal((await w.req('POST', '/v1/me/delete', { cookie: u.cookie, body: { confirm: 'delete' }, xleash: false })).body.error, 'csrf');
-  const r = await w.req('POST', '/v1/me/delete', { cookie: u.cookie, body: { confirm: 'delete' } });
+  const begin = async () => (await w.req('POST', '/v1/me/delete/begin', { cookie: u.cookie, body: {} })).body;
+  assert.equal((await w.req('POST', '/v1/me/delete', { cookie: u.cookie, body: { confirm: 'delete' } })).status, 404, 'the one-step route is gone');
+  let b = await begin();
+  assert.equal((await w.req('POST', '/v1/me/delete/finish', { cookie: u.cookie, body: { challengeId: b.challengeId, credential: await u.auth.get(b.options) } })).body.error, 'confirm_required');
+  assert.equal((await w.req('POST', '/v1/me/delete/finish', { cookie: u.cookie, body: { confirm: 'delete' } })).body.error, 'bad_challenge', 'no ceremony, no delete');
+  assert.equal((await w.req('POST', '/v1/me/delete/finish', { cookie: u.cookie, body: { confirm: 'delete' }, xleash: false })).body.error, 'csrf');
+  b = await begin();
+  const r = await w.req('POST', '/v1/me/delete/finish', { cookie: u.cookie, body: { confirm: 'delete', challengeId: b.challengeId, credential: await u.auth.get(b.options) } });
   assert.equal(r.status, 200, JSON.stringify(r.body));
   for (const t of ['accounts', 'passkeys', 'credentials', 'tokens', 'holds', 'audit', 'sessions']) assert.equal(w.env.DB.raw.prepare(`SELECT count(*) n FROM ${t}`).get().n, 0, t);
   assert.equal((await w.req('GET', '/p/github/repos/acme/app/issues', { bearer: token, origin: null, xleash: false })).status, 401);

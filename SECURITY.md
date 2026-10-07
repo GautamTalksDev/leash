@@ -23,16 +23,32 @@ other people's data or degrade the service.
 | Rate limits | Per token (policy, default 120/min), per account (300/min), per IP (IPv6 grouped by /64, salted hash) | API4 Unrestricted Resource Consumption |
 | Headers | Strict CSP with `require-trusted-types-for 'script'`, HSTS preload, COOP, CORP, `X-Frame-Options: DENY`, `Permissions-Policy` | A05 Security Misconfiguration |
 | Supply chain | Zero runtime dependencies in the Worker and the CLI; GitHub Actions pinned by SHA | A06, A08 |
-| Logging | Hash-chained, append-only audit; tamper detection endpoint; no request bodies, tokens or keys in logs | A09 Logging and Monitoring Failures |
+| Logging | Hash-chained, append-only audit; tamper detection endpoint; no tokens or keys in logs; a hold records a 2 KB preview of the request so the log shows what was approved | A09 Logging and Monitoring Failures |
 | Agents (LLM Top 10) | Excessive agency is the threat LEASH exists for: irreversible calls are held outside the model; tool descriptions tell the agent not to route around holds | LLM06 Excessive Agency |
 
 ## What LEASH does not protect against
 
-- A human approving something they should not. The approve screen shows the exact method, host and path, and the reason.
+- A human approving something they should not. The approve screen shows the exact method, host and path, the reason, and a preview of the request (query string, SQL or GraphQL, body; at most 2 KB).
 - An upstream API key that is itself over-scoped being used outside LEASH. Rotate keys you hand to LEASH and keep them only
   in the vault.
 - Calls the map does not know are irreversible. The map is versioned and conservative (every `DELETE` is held on every
   provider); add `hold` rules to your policy for anything else you care about.
 - A compromised Cloudflare account. The master key lives in Workers secrets.
+
+## Hardening, 7 Oct 2026
+
+- SQL to Supabase and D1 is now an allow list: only a single SELECT, WITH ... SELECT, EXPLAIN (without ANALYZE) or SHOW
+  passes, read by a real tokenizer (quotes, quoted identifiers, comments). Dollar quotes, DO, EXECUTE, CALL, COPY, a second
+  statement or anything unreadable is held.
+- D1 bodies: every `sql`, `query` and batch entry is checked; a body with both `sql` and `query` is held.
+- Paths: empty segments are refused, one trailing slash is dropped, GitHub owner and repo are matched case-insensitively,
+  and the exact path that was checked is the one sent upstream.
+- GitHub force-push and visibility rules parse the JSON body instead of matching text; unreadable bodies are held.
+- Railway: a GraphQL lexer (commas, comments, strings) reads root mutation fields; only redeploy and restart pass. Batched
+  array bodies, persisted queries and mutations sent over GET are held.
+- Stripe: payment intents created with `confirm=true`, charge and application fee refunds, invoice pay and void, credit
+  notes, and scheduled subscription cancellation are held. Map version `2026-10-07.2`.
+- Holds store and show a capped preview of the request.
+- Deleting your account needs a fresh passkey ceremony; deleting a vaulted key needs a web session.
 
 See [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).

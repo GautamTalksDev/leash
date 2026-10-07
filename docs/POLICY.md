@@ -28,6 +28,10 @@ A **rule** is `{ "method": "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "*", "p
 the provider's base (for Cloudflare, after `/client/v4`). Globs: `*` matches one path segment, `**` any depth, `{a,b}`
 alternatives.
 
+Paths are matched in one canonical form, and that exact path is what LEASH sends upstream: a path with an empty
+segment (`//`) is refused with `400 bad_path`, one trailing slash is dropped (on requests and on your rules), and on
+GitHub, where owner and repo names are case-insensitive, both the path and your rule are lowercased before matching.
+
 ## Order of evaluation
 
 1. `deny`
