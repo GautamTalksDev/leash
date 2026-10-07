@@ -11,13 +11,14 @@
 <div class="wrap">
   <nav><a class="logo" href="/"><i></i>LEASH</a><div class="row"><span id="who" class="dim"></span><button id="logout" class="btn" hidden>Sign out</button></div></nav>
 
-  <div id="signedOut" class="app" hidden>
-    <div class="panel">
-      <h2>Sign in with a passkey</h2>
-      <p class="dim">No passwords. Your phone, laptop or security key is your login.</p>
-      <div class="row" id="signinRow"><button id="login" class="btn pri">Sign in</button></div>
-      <label for="name">New here? Your name</label>
-      <div class="row"><input id="name" maxlength="60" autocomplete="name" placeholder="Ada"><button id="register" class="btn">Create account</button></div>
+  <div id="signedOut" class="auth" hidden>
+    <div class="auth-card">
+      <svg class="auth-ring" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="50" class="r1"/><circle cx="60" cy="60" r="34" class="r2"/><circle cx="60" cy="60" r="10" class="r3"/></svg>
+      <h1>Hold the keys.<br><em>Let agents work.</em></h1>
+      <p class="dim">Sign in with a passkey. No passwords: your phone, laptop or security key is your login, and the same tap approves held calls.</p>
+      <button id="login" class="btn-x pri wide">Sign in with a passkey</button>
+      <div class="or"><span>new to LEASH</span></div>
+      <div class="row"><input id="name" maxlength="60" autocomplete="name" placeholder="Your name"><button id="register" class="btn-x">Create account</button></div>
     </div>
   </div>
 
