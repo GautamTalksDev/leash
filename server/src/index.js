@@ -72,8 +72,7 @@ export async function handle(request, env, opts = {}) {
 
 export default {
   async fetch(request, env, ctx) {
-    const res = await handle(request, env);
-    return res;
+    return handle(request, { ...env, __ctx: ctx });
   },
   async scheduled(event, env) {
     const t = Date.now();
