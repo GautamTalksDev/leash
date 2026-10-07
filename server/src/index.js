@@ -100,6 +100,8 @@ async function sweep(env) {
     env.DB.prepare('DELETE FROM device_codes WHERE expires_at < ?').bind(t),
     env.DB.prepare('DELETE FROM ratelimits WHERE reset_at < ?').bind(t),
     env.DB.prepare("UPDATE holds SET status = 'expired' WHERE status IN ('pending','approved') AND expires_at < ?").bind(t),
+    // request previews are only needed while a human is deciding; drop them a day after the hold is closed
+    env.DB.prepare("UPDATE holds SET preview = NULL WHERE preview IS NOT NULL AND status NOT IN ('pending','approved') AND expires_at < ?").bind(t - 86400_000),
   ]);
 }
 

@@ -44,6 +44,13 @@ export function sqlTokens(sql) {
 const SQL_WRITE = new Set(('insert update delete merge drop truncate alter create grant revoke do execute exec call copy into ' +
   'lock for set reset attach detach pragma vacuum reindex analyze notify listen load import refresh cluster comment security prepare ' +
   'deallocate savepoint begin commit rollback returning').split(' '));
+const SQL_SAFE_FN = new Set(('count sum avg min max coalesce nullif greatest least lower upper length char_length substring substr trim ltrim rtrim '
+  + 'replace concat concat_ws left right position strpos split_part abs round ceil ceiling floor trunc mod power sqrt now current_date '
+  + 'date_trunc date_part extract to_char to_date to_timestamp age array_agg string_agg json_agg jsonb_agg json_build_object '
+  + 'jsonb_build_object row_number rank dense_rank lag lead first_value last_value bool_and bool_or md5 gen_random_uuid cast '
+  + 'array_length unnest jsonb_array_length json_array_length datetime date time strftime julianday ifnull iif printf instr typeof total group_concat').split(' '));
+// keywords that are followed by "(" without being calls
+const SQL_PAREN_KW = new Set('in exists any all over filter within as from join on where and or not values using select case then else when interval'.split(' '));
 const SQL_FN = /^(pg_|lo_|dblink|set_config|nextval|setval|txid_|query_to_)/;
 
 /** true only for one statement that is plainly a read: SELECT, WITH ... SELECT, EXPLAIN (no ANALYZE), SHOW */
@@ -53,7 +60,9 @@ export function sqlReadOnly(sql) {
   while (tk.length && tk[tk.length - 1].t === ';') tk.pop();
   if (!tk.length || tk.some((x) => x.t === ';')) return false;
   if (tk[0].t !== 'w' || !['select', 'with', 'explain', 'show'].includes(tk[0].v)) return false;
-  return !tk.some((x) => x.t === 'w' && (SQL_WRITE.has(x.v) || SQL_FN.test(x.v)));
+  if (tk.some((x) => x.t === 'w' && (SQL_WRITE.has(x.v) || SQL_FN.test(x.v)))) return false;
+  // Every function call must be a known pure function. Anything else (user functions, extensions, quoted names) is held.
+  return tk.every((x, i) => !(tk[i + 1]?.v === '(') || (x.t === 'w' && (SQL_SAFE_FN.has(x.v) || SQL_PAREN_KW.has(x.v))) || x.t === 'p');
 }
 
 /** kept for callers and tests: anything that is not plainly read-only needs a human */

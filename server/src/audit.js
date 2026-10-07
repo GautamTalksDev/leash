@@ -1,6 +1,6 @@
 // Append-only audit log, hash-chained per account: each entry commits to the one before it, so a deleted or
-// edited row breaks the chain (verifyChain). Secrets and tokens are never written here. A hold records a 2 KB
-// preview of the request (query string, SQL or GraphQL, body) so the log shows exactly what was approved.
+// edited row breaks the chain (verifyChain). Secrets and tokens are never written here. A hold records the
+// SHA-256 of the request preview, so the log proves exactly what was approved without keeping request content forever.
 import { sha256hex, now } from './util.js';
 
 export async function audit(env, accountId, actor, action, detail) {

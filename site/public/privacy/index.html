@@ -62,7 +62,7 @@
     <tr><td>Your passkey's public key and a usage counter</td><td>To verify sign-ins and approvals, and to detect cloned authenticators.</td></tr>
     <tr><td>API keys you add to the vault, <strong>encrypted</strong></td><td>To call the provider on your agent's behalf. Each key has its own AES-256-GCM key, wrapped by a master key held outside the database. We keep the last four characters in clear so you can tell keys apart.</td></tr>
     <tr><td>Agent tokens, as a hash</td><td>To recognise your agents. The token itself is shown to you once and never stored.</td></tr>
-    <tr><td>Held calls: method, host, path, rule, time, decision</td><td>So you can see and decide on them. We do not store request bodies.</td></tr>
+    <tr><td>Held calls: method, host, path, rule, time, decision, and a preview of the request (query string and up to 2 KB of the body or SQL)</td><td>So you can see exactly what you are approving. The preview is deleted a day after you decide; the audit log keeps only a fingerprint (hash) of it.</td></tr>
     <tr><td>Your audit log</td><td>Calls, holds, approvals, token and key changes, hash-chained so tampering is detectable.</td></tr>
     <tr><td>Session records, as a hash</td><td>To keep you signed in. Web sessions and CLI sessions expire automatically.</td></tr>
     <tr><td>A salted hash of your IP address</td><td>Only for rate limiting, deleted when the limit window ends. IPv6 addresses are grouped by /64 before hashing.</td></tr>
@@ -72,7 +72,7 @@
   <ul>
     <li>Your biometric data, device PIN or private keys.</li>
     <li>Your API keys in readable form, anywhere: not in the database, not in logs, not in error messages.</li>
-    <li>The bodies of requests your agents send or the responses they get back. They pass through and are gone.</li>
+    <li>The bodies of requests your agents send or the responses they get back. They pass through and are gone. The only exception is the short preview of a held call, kept until a day after you decide on it.</li>
     <li>Your IP address in clear, your location, or any device fingerprint.</li>
   </ul>
 

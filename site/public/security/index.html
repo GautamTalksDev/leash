@@ -55,7 +55,7 @@
   <h2 id="approvals">How approvals work</h2>
   <ol>
     <li>Your agent makes an irreversible call. LEASH stops it and returns <code>428 held_for_approval</code> with a link.</li>
-    <li>You open the link (or the app) and see the exact method, host, path, the rule that matched and why.</li>
+    <li>You open the link (or the app) and see the exact method, host, path, the rule that matched, why, and a preview of the request itself: the SQL, the GraphQL or the body.</li>
     <li>You approve with your passkey: Face ID, Touch ID, Windows Hello or a security key. The check happens on your device; LEASH only verifies a signature.</li>
     <li>The approval covers <strong>that exact request</strong>, identified by a hash of its method, path and body, <strong>once</strong>, for <strong>ten minutes</strong>. A different request, or the same one twice, is held again.</li>
   </ol>
@@ -75,7 +75,7 @@
     <tr><td>Abuse</td><td>Rate limits per token (default 120 a minute), per account and per IP (salted hash, IPv6 by /64).</td><td>API4</td></tr>
     <tr><td>Browser</td><td>Strict CSP with Trusted Types, HSTS preload, COOP, CORP, frame-ancestors none, tight Permissions-Policy. No third-party scripts.</td><td>A02</td></tr>
     <tr><td>Supply chain</td><td>Zero runtime dependencies in the Worker and the CLI. CI actions pinned by commit SHA.</td><td>A03, A08</td></tr>
-    <tr><td>Logging</td><td>Append-only, hash-chained audit log with a verify endpoint. No bodies, tokens or keys in logs.</td><td>A09</td></tr>
+    <tr><td>Logging</td><td>Append-only, hash-chained audit log with a verify endpoint. No bodies, tokens or keys in logs; a hold is logged with a hash of its preview.</td><td>A09</td></tr>
     <tr><td>Agents</td><td>Excessive agency is the threat LEASH exists for. Irreversible calls are held outside the model.</td><td>LLM06</td></tr>
   </table>
   <p class="meta">OWASP Top 10 2025 numbering. API = OWASP API Security Top 10, LLM = OWASP Top 10 for LLM Applications.</p>
@@ -84,7 +84,7 @@
   <ul>
     <li><strong>A human approving something they shouldn't.</strong> The approval screen shows exactly what will happen and why. Read it.</li>
     <li><strong>An over-scoped key used outside LEASH.</strong> Rotate the keys you give LEASH and keep them only in the vault.</li>
-    <li><strong>Calls the map doesn't know are irreversible.</strong> The map is conservative (every DELETE is held on every provider). Add <code>hold</code> rules to your policy for anything else you care about.</li>
+    <li><strong>Calls the map doesn't know are irreversible.</strong> The map is conservative: every DELETE is held on every provider, SQL is held unless it is plainly read-only, and Railway mutations are held unless they are on a short safe list. Add <code>hold</code> rules to your policy for anything else you care about.</li>
     <li><strong>A compromised Cloudflare account.</strong> The master key lives in Cloudflare's secret store.</li>
   </ul>
 

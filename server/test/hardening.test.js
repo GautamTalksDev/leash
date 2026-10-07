@@ -117,7 +117,7 @@ test('C6: Stripe money movers that were missing from the map are held', () => {
   assert.equal(st('/v1/subscriptions/sub_1', 'metadata[x]=1'), undefined);
 });
 
-test('C7: a hold carries a capped preview of what it would do, in the API and the audit log', async () => {
+test('C7: a hold carries a capped preview of what it would do; the audit log keeps only its hash', async () => {
   const w = new World();
   const { u, token } = await setup(w, 'supabase', 'sbp_' + 'a'.repeat(40));
   const h = await w.req('POST', '/p/supabase/v1/projects/abc/database/query?x=1', { bearer: token, ...P, body: { query: 'DROP TABLE users' } });
@@ -126,7 +126,8 @@ test('C7: a hold carries a capped preview of what it would do, in the API and th
   assert.match(hold.preview, /^\?x=1/);
   assert.match(hold.preview, /DROP TABLE users/);
   const a = (await w.req('GET', '/v1/audit', { cookie: u.cookie })).body.entries.find((e) => e.action === 'hold');
-  assert.equal(a.detail.preview, hold.preview);
+  assert.equal(a.detail.preview, undefined, 'request content never enters the permanent log');
+  assert.match(a.detail.preview_sha256, /^[0-9a-f]{64}$/);
   await w.req('POST', '/p/supabase/v1/projects/abc/database/query', { bearer: token, ...P, body: { query: 'DROP TABLE t; -- ' + 'x'.repeat(5000) } });
   const big = (await w.req('GET', '/v1/holds', { cookie: u.cookie })).body.holds.find((x) => x.id !== hold.id);
   assert.ok(big.preview.length <= 2048);
@@ -156,4 +157,13 @@ test('P4: account deletion needs a passkey ceremony bound to this account', asyn
   const m = (await w.req('POST', '/v1/tokens/passkey/begin', { cookie: u.cookie, body: {} })).body;
   assert.equal((await w.req('POST', '/v1/me/delete/finish', { cookie: u.cookie, body: { confirm: 'delete', challengeId: m.challengeId, credential: await u.auth.get(m.options) } })).body.error, 'challenge_expired');
   assert.equal(w.env.DB.raw.prepare('SELECT count(*) n FROM accounts').get().n, 2);
+});
+
+test('C1b: SELECT may only call known pure functions', async () => {
+  const { sqlReadOnly } = await import('../src/providers.js');
+  assert.equal(sqlReadOnly('select count(*), lower(name) from users where id in (1,2)'), true);
+  assert.equal(sqlReadOnly('select my_cleanup()'), false);
+  assert.equal(sqlReadOnly('select public.wipe_all(1)'), false);
+  assert.equal(sqlReadOnly('select "pg_terminate_backend"(1)'), false);
+  assert.equal(sqlReadOnly('select http_post(1)'), false);
 });

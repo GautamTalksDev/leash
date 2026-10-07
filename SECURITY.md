@@ -23,7 +23,7 @@ other people's data or degrade the service.
 | Rate limits | Per token (policy, default 120/min), per account (300/min), per IP (IPv6 grouped by /64, salted hash) | API4 Unrestricted Resource Consumption |
 | Headers | Strict CSP with `require-trusted-types-for 'script'`, HSTS preload, COOP, CORP, `X-Frame-Options: DENY`, `Permissions-Policy` | A05 Security Misconfiguration |
 | Supply chain | Zero runtime dependencies in the Worker and the CLI; GitHub Actions pinned by SHA | A06, A08 |
-| Logging | Hash-chained, append-only audit; tamper detection endpoint; no tokens or keys in logs; a hold records a 2 KB preview of the request so the log shows what was approved | A09 Logging and Monitoring Failures |
+| Logging | Hash-chained, append-only audit; tamper detection endpoint; no request bodies, tokens or keys in logs; a hold's audit entry records the SHA-256 of its request preview, and the preview itself is deleted a day after the decision | A09 Logging and Monitoring Failures |
 | Agents (LLM Top 10) | Excessive agency is the threat LEASH exists for: irreversible calls are held outside the model; tool descriptions tell the agent not to route around holds | LLM06 Excessive Agency |
 
 ## What LEASH does not protect against
@@ -48,7 +48,8 @@ other people's data or degrade the service.
   array bodies, persisted queries and mutations sent over GET are held.
 - Stripe: payment intents created with `confirm=true`, charge and application fee refunds, invoice pay and void, credit
   notes, and scheduled subscription cancellation are held. Map version `2026-10-07.2`.
-- Holds store and show a capped preview of the request.
+- Holds store and show a capped preview of the request (deleted a day after the decision; the audit log keeps only its hash).
+- SQL is held unless it is one read-only statement calling only known pure functions.
 - Deleting your account needs a fresh passkey ceremony; deleting a vaulted key needs a web session.
 
 See [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
