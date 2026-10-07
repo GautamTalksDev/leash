@@ -123,7 +123,8 @@ test('C7: a hold carries a capped preview of what it would do; the audit log kee
   const h = await w.req('POST', '/p/supabase/v1/projects/abc/database/query?x=1', { bearer: token, ...P, body: { query: 'DROP TABLE users' } });
   assert.equal(h.status, 428);
   const [hold] = (await w.req('GET', '/v1/holds', { cookie: u.cookie })).body.holds;
-  assert.match(hold.preview, /^\?x=1/);
+  assert.match(hold.preview, /^SQL: 1 statement: DROP/, 'parsed summary first');
+  assert.match(hold.preview, /\?x=1/);
   assert.match(hold.preview, /DROP TABLE users/);
   const a = (await w.req('GET', '/v1/audit', { cookie: u.cookie })).body.entries.find((e) => e.action === 'hold');
   assert.equal(a.detail.preview, undefined, 'request content never enters the permanent log');
@@ -166,4 +167,44 @@ test('C1b: SELECT may only call known pure functions', async () => {
   assert.equal(sqlReadOnly('select public.wipe_all(1)'), false);
   assert.equal(sqlReadOnly('select "pg_terminate_backend"(1)'), false);
   assert.equal(sqlReadOnly('select http_post(1)'), false);
+});
+
+// ---- second review (7 Oct 2026)
+test('R2-1: GitHub GraphQL mutations are held; plain queries pass', () => {
+  const g = (q) => irreversibleRule('github', 'POST', '/graphql', JSON.stringify({ query: q }))?.id;
+  assert.equal(g('mutation { deleteRepository(input:{repositoryId:"R_x"}){clientMutationId} }'), 'gh.graphql');
+  assert.equal(g('mutation { transferRepository(input:{}){clientMutationId} }'), 'gh.graphql');
+  assert.equal(g('query { viewer { login } }'), undefined);
+  assert.equal(g('{ viewer { login } }'), undefined);
+  assert.equal(irreversibleRule('github', 'POST', '/graphql', '[{"query":"{viewer{login}}"}]')?.id, 'gh.graphql', 'batches are held');
+  assert.equal(irreversibleRule('github', 'GET', '/graphql', '')?.id, 'gh.graphql-get');
+});
+test('R2-2: Cloudflare Worker uploads and DNS overwrites are held', () => {
+  assert.equal(irreversibleRule('cloudflare', 'PUT', '/accounts/a/workers/scripts/prod', '')?.id, 'cf.worker-put');
+  assert.equal(irreversibleRule('cloudflare', 'PUT', '/zones/z/dns_records/r', '{"content":"6.6.6.6"}')?.id, 'cf.dns-write');
+  assert.equal(irreversibleRule('cloudflare', 'PATCH', '/zones/z/dns_records/r', '{"content":"6.6.6.6"}')?.id, 'cf.dns-write');
+  assert.equal(irreversibleRule('cloudflare', 'GET', '/zones/z/dns_records', ''), null);
+});
+test('R2-3: Supabase password reset and config changes are held', () => {
+  assert.equal(irreversibleRule('supabase', 'POST', '/v1/projects/p/database/password', '{}')?.id, 'sb.db-password');
+  assert.equal(irreversibleRule('supabase', 'PATCH', '/v1/projects/p/config/database/postgres', '{}')?.id, 'sb.config');
+});
+test('R2-4: padding cannot hide the dangerous part of a held request from the approver', async () => {
+  const { preview } = await import('../src/broker.js');
+  const q = 'mutation {\n #' + 'x'.repeat(2100) + '\n serviceInstanceRedeploy(serviceId:"s")\n volumeDelete(volumeId:"v")\n }';
+  const pv = preview('', JSON.stringify({ query: q }));
+  assert.ok(pv.length <= 2048 + 200);
+  assert.match(pv.split('\n')[0], /volumeDelete/, 'the parsed summary comes first');
+  assert.match(pv, /only the first part is shown/);
+  const sql = preview('', JSON.stringify({ query: 'select 1 /*' + 'x'.repeat(3000) + '*/; drop table users' }));
+  assert.match(sql.split('\n')[0], /SQL: 2 statements: SELECT; DROP \[DROP\]/);
+  const bidi = preview('', JSON.stringify({ query: 'select 1 ‮ drop' }));
+  assert.match(bidi, /<U\+202E>/);
+  assert.ok(!bidi.includes('‮'));
+});
+test('R2-5: percent-encoded letters are decoded before matching', async () => {
+  const { canonPath } = await import('../src/broker.js');
+  assert.equal(canonPath('/v1/%72efunds'), '/v1/refunds');
+  assert.equal(irreversibleRule('stripe', 'POST', canonPath('/v1/%72efunds'), '')?.id, 'st.money');
+  assert.equal(canonPath('/a/b%20c'), '/a/b%20c');
 });

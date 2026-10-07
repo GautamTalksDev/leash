@@ -1,7 +1,7 @@
 // Credentials, proxy tokens, the proxy, and holds.
 import { HttpError, json, b64u, rand, randomId, sha256hex, now, str } from './util.js';
 import { seal, open } from './vault.js';
-import { PROVIDERS, MAP_VERSION } from './providers.js';
+import { summarize, PROVIDERS, MAP_VERSION } from './providers.js';
 import { normalisePolicy, decide } from './policy.js';
 import { audit } from './audit.js';
 import { newChallenge, takeChallenge, checkAssertion, rp } from './auth.js';
@@ -121,27 +121,32 @@ const DROP_RESP = new Set(['set-cookie', 'set-cookie2', 'alt-svc', 'strict-trans
  * could escape the provider base, no empty segments, and one trailing slash dropped so /x and /x/ are the same path. */
 export function canonPath(p) {
   if (/(^|\/)\.\.?(\/|$)/.test(p) || /%2f|%5c|%2e/i.test(p) || /[\\\s]/.test(p) || p.length > 2000) throw new HttpError(400, 'bad_path');
+  // Decode escapes of unreserved characters (%72 is just "r") so rules see what the upstream router sees.
+  p = p.replace(/%([0-9a-f]{2})/gi, (m, h) => { const c = String.fromCharCode(parseInt(h, 16)); return /[A-Za-z0-9\-_~]/.test(c) ? c : m.toUpperCase(); });
   const c = p.length > 1 && p.endsWith('/') ? p.slice(0, -1) : p;
   if (c.includes('//')) throw new HttpError(400, 'bad_path');
   return c;
 }
 
-/** What the approver sees: the query string, any SQL or GraphQL in the body, then the body itself, capped at 2 KB. */
+/** What the approver sees. First LEASH's own parsed account of the request (mutations, SQL statements and every write
+ * keyword or unknown function), which padding can't push out of view; then a size warning if the request is bigger than
+ * the window; then the raw query string and body. Invisible and direction-changing characters are made visible so the
+ * text can't be visually reordered or hidden. */
 const PREVIEW = 2048;
+const INVISIBLE = /[​-‏‪-‮⁠-⁩﻿­؜]/g;
+const visible = (t) => String(t).replace(INVISIBLE, (c) => `<U+${c.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')}>`);
 export function preview(search, text) {
-  const parts = [];
-  if (search) parts.push(search);
-  const walk = (o) => {
-    if (Array.isArray(o)) return o.forEach(walk);
-    if (!o || typeof o !== 'object') return;
-    for (const k of ['sql', 'query']) if (typeof o[k] === 'string') parts.push(o[k]);
-    if (o.batch) walk(o.batch);
-  };
-  try { walk(JSON.parse(text)); } catch { /* not JSON: the raw body below is all there is */ }
-  if (text) parts.push(text);
-  const s = parts.join('\n\n');
-  if (!s) return null;
-  return s.length > PREVIEW ? s.slice(0, PREVIEW - 12) + '\n[truncated]' : s;
+  const head = summarize(search, text);
+  const raw = [search, text].filter(Boolean).join('\n\n');
+  if (!raw && !head.length) return null;
+  if (raw.length > PREVIEW) head.push(`Request is ${raw.length} characters; only the first part is shown below. LEASH's summary above covers all of it.`);
+  if (INVISIBLE.test(raw)) head.push('Contains invisible or direction-changing characters (shown as <U+...>).');
+  INVISIBLE.lastIndex = 0;
+  const top = head.map((h) => visible(h)).join('\n');
+  const room = Math.max(256, PREVIEW - top.length - 2);
+  let body = visible(raw);
+  if (body.length > room) body = body.slice(0, room - 12) + '\n[truncated]';
+  return (top ? top + '\n\n' : '') + body;
 }
 
 export async function proxy(env, request, provider, rest, fetcher = fetch) {

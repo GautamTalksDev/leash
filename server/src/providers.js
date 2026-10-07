@@ -3,7 +3,7 @@
 // or doc it comes from. Rules match on method + path (glob) and, where the danger is in the body, on the body.
 // Body checks fail closed: a body LEASH cannot read on a route that has a body rule is held.
 // Version it; every change must come with a test in test/hardening.test.js or test/leash.test.js.
-export const MAP_VERSION = '2026-10-07.2';
+export const MAP_VERSION = '2026-10-07.3';
 
 // ---------------------------------------------------------------- SQL
 // A real tokenizer: single-quoted strings, double-quoted and backtick identifiers, -- and nested /* */ comments.
@@ -148,6 +148,41 @@ export function gqlMutationFields(src) {
 // The only Railway mutations that pass without approval: restarting or redeploying what is already running.
 // Everything else (deletes, resets, rollbacks, variable and volume changes, anything new) is held.
 export const RAILWAY_SAFE = new Set(['serviceInstanceRedeploy', 'deploymentRestart', '__typename']);
+/** GitHub's GraphQL API can do everything the REST map guards (deleteRepository, transferRepository, ...). Only pure queries pass. */
+function ghGraphqlHold(body) {
+  let j;
+  try { j = JSON.parse(body || ''); } catch { return true; }
+  if (!j || typeof j !== 'object' || Array.isArray(j) || typeof j.query !== 'string') return true;
+  const f = gqlMutationFields(j.query);
+  return !f || f.length > 0;
+}
+
+/** A short, parsed account of what a request would do, shown above the raw preview so padding can't hide it. */
+export function summarize(search, body) {
+  const out = [];
+  let j; try { j = JSON.parse(body || ''); } catch { j = undefined; }
+  const gq = (q) => { const f = gqlMutationFields(q); return f === null ? 'GraphQL LEASH could not read' : f.length ? 'GraphQL mutations: ' + f.join(', ') : 'GraphQL query (read only)'; };
+  if (j && typeof j === 'object' && !Array.isArray(j) && typeof j.query === 'string' && !/^\s*(select|with|explain|show|insert|update|delete|drop|create|alter)\b/i.test(j.query)) out.push(gq(j.query));
+  const sqls = sqlBodies(body);
+  if (sqls) for (const q of sqls) out.push('SQL: ' + sqlSummary(q));
+  if (Array.isArray(j)) out.push(`Batch of ${j.length} requests`);
+  const m = /[?&]query=([^&]*)/.exec(search || '');
+  if (m) { try { out.push(gq(decodeURIComponent(m[1].replace(/\+/g, ' ')))); } catch { out.push('Query string LEASH could not read'); } }
+  return out;
+}
+/** statement starts plus every write keyword or unknown function, in order */
+export function sqlSummary(sql) {
+  const tk = sqlTokens(sql);
+  if (!tk) return 'could not be read (unterminated string or comment, backslash, or $ quoting)';
+  const stmts = [[]];
+  for (const x of tk) x.t === ';' ? stmts.push([]) : stmts[stmts.length - 1].push(x);
+  const parts = stmts.filter((t) => t.length).map((t) => {
+    const flags = [...new Set(t.filter((x, i) => x.t === 'w' && (SQL_WRITE.has(x.v) || SQL_FN.test(x.v) || (t[i + 1]?.v === '(' && !SQL_SAFE_FN.has(x.v) && !SQL_PAREN_KW.has(x.v)))).map((x) => x.v.toUpperCase()))];
+    return t[0].v.toUpperCase() + (flags.length ? ' [' + flags.join(', ') + ']' : '');
+  });
+  return `${parts.length} statement${parts.length === 1 ? '' : 's'}: ` + parts.join('; ');
+}
+
 function railwayHold(body) {
   let j;
   try { j = JSON.parse(body || ''); } catch { return true; }
@@ -191,6 +226,8 @@ export const PROVIDERS = {
       { id: 'gh.transfer', m: 'POST', p: '/repos/*/*/transfer', why: 'Transferring a repository hands it to another owner.' },
       { id: 'gh.visibility', m: 'PATCH', p: '/repos/*/*', body: ghVisibility, why: 'Changing visibility can publish private code; archiving freezes a repo.' },
       { id: 'gh.protection', m: 'PUT', p: '/repos/*/*/branches/*/protection', why: 'Rewriting branch protection can remove the rules that guard main.' },
+      { id: 'gh.graphql', m: 'POST', p: '/graphql', body: ghGraphqlHold, why: 'A GitHub GraphQL mutation (deleteRepository, transferRepository, updateRepository and every other write), or a request LEASH cannot read.' },
+      { id: 'gh.graphql-get', m: 'GET', p: '/graphql', why: 'GitHub GraphQL over GET is not a normal client path.' },
       { id: 'gh.actions-secret', m: 'PUT', p: '/repos/*/*/actions/secrets/*', why: 'Overwriting a CI secret silently changes what production deploys with.' },
     ],
   },
@@ -202,6 +239,10 @@ export const PROVIDERS = {
     irreversible: [
       { id: 'cf.delete', m: 'DELETE', p: '/**', why: 'Deletes a zone, DNS record, Worker, bucket, database or token.' },
       { id: 'cf.purge', m: 'POST', p: '/zones/*/purge_cache', body: (b) => /purge_everything/.test(b || ''), why: 'Purging the whole cache can take a site down under load.' },
+      { id: 'cf.worker-put', m: 'PUT', p: '/accounts/*/workers/scripts/**', why: 'Uploading over a Worker replaces production code.' },
+      { id: 'cf.dns-write', m: 'PUT,PATCH', p: '/zones/*/dns_records/*', why: 'Overwriting a DNS record can point a domain somewhere else.' },
+      { id: 'cf.r2-config', m: 'PUT', p: '/accounts/*/r2/buckets/*/{lifecycle,cors,domains/**}', why: 'Bucket lifecycle rules can delete objects; domain changes expose a bucket.' },
+      { id: 'cf.token-roll', m: 'PUT', p: '/user/tokens/*/value', why: 'Rolling an API token breaks everything using it.' },
       { id: 'cf.d1-sql', m: 'POST', p: '/accounts/*/d1/database/*/{query,raw}', body: sqlHold, why: 'SQL against a production D1 database that is not a single plain read.' },
     ],
   },
@@ -246,6 +287,8 @@ export const PROVIDERS = {
       { id: 'sb.delete', m: 'DELETE', p: '/**', why: 'Deletes a project, function, branch or secret.' },
       { id: 'sb.sql', m: 'POST', p: '/v1/projects/*/database/query', body: sqlHold, why: 'SQL on the database that is not a single plain read (SELECT, WITH ... SELECT, EXPLAIN, SHOW).' },
       { id: 'sb.pause', m: 'POST', p: '/v1/projects/*/{pause,restore}', why: 'Pausing or restoring a project takes production offline.' },
+      { id: 'sb.db-password', m: 'POST', p: '/v1/projects/*/database/password', why: 'Resetting the database password breaks every existing connection.' },
+      { id: 'sb.config', m: 'PUT,PATCH', p: '/v1/projects/*/config/**', why: 'Changes production database, auth or network configuration.' },
       { id: 'sb.secrets', m: 'POST', p: '/v1/projects/*/secrets', why: 'Overwriting project secrets changes production configuration.' },
     ],
   },
@@ -278,7 +321,7 @@ export function irreversibleRule(provider, method, path, body, search = '') {
   const P = PROVIDERS[provider];
   const mp = matchPath(provider, path);
   for (const r of P.irreversible) {
-    if (r.m !== method) continue;
+    if (!r.m.split(',').includes(method)) continue;
     if (!globMatch(r.p, mp)) continue;
     if (r.body && !r.body(body, search)) continue;
     return r;
