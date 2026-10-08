@@ -63,12 +63,14 @@ export async function notify(env, accountId, fetcher = fetch) {
   if (!k) return { sent: 0 };
   const subs = (await env.DB.prepare('SELECT id, endpoint FROM push_subs WHERE account_id = ?').bind(accountId).all()).results;
   let sent = 0;
+  const results = [];
   for (const s of subs) {
     try {
-      const r = await fetcher(s.endpoint, { method: 'POST', redirect: 'manual', headers: { authorization: await vapidHeader(env, k, s.endpoint), ttl: '600', urgency: 'high', 'content-length': '0' } });
+      const r = await fetcher(s.endpoint, { method: 'POST', redirect: 'manual', headers: { authorization: await vapidHeader(env, k, s.endpoint), ttl: '600', urgency: 'high' }, body: '' });
+      results.push({ service: new URL(s.endpoint).hostname, status: r.status, reason: r.status >= 300 ? (await r.text()).slice(0, 200) : undefined });
       if (r.status === 404 || r.status === 410) await env.DB.prepare('DELETE FROM push_subs WHERE id = ?').bind(s.id).run();
       else if (r.status < 300) { sent++; await env.DB.prepare('UPDATE push_subs SET last_ok_at = ? WHERE id = ?').bind(now(), s.id).run(); }
-    } catch { /* one dead device never blocks the others */ }
+    } catch (e) { results.push({ service: new URL(s.endpoint).hostname, error: String(e && e.message || e).slice(0, 200) }); }
   }
-  return { sent };
+  return { sent, devices: subs.length, results };
 }

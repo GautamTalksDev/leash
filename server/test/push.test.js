@@ -41,8 +41,7 @@ test('a held request wakes the owner devices with an EMPTY, VAPID-signed push; d
   assert.equal(w.pushes.length, 1);
   const p = w.pushes[0];
   assert.equal(p.url, FCM);
-  assert.equal(p.init.body, undefined, 'the push carries no payload');
-  assert.equal(p.init.headers['content-length'], '0');
+  assert.equal(p.init.body, '', 'the push carries no payload');
   // VAPID JWT verifies against the public key the browser was given, audience = push service origin
   const m = p.init.headers.authorization.match(/^vapid t=([^.]+)\.([^.]+)\.([^,]+), k=(.+)$/);
   assert.ok(m);

@@ -153,7 +153,7 @@ $('pushOn').onclick = async () => {
     toast('Alerts are on for this device.'); pushState();
   } catch (e) { toast(e.message); }
 };
-$('pushTest').onclick = async () => { try { const r = await api('POST', '/v1/push/test', {}); toast(r.sent ? 'Test sent. The alert should arrive in a few seconds.' : 'No device answered. Turn alerts off and on again.'); } catch (e) { toast(e.message); } };
+$('pushTest').onclick = async () => { try { const r = await api('POST', '/v1/push/test', {}); toast(r.sent ? 'Test sent. The alert should arrive in a few seconds.' : `No device answered (${r.devices} registered): ${(r.results || []).map((x) => x.service + ' ' + (x.status || '') + ' ' + (x.reason || x.error || '')).join('; ') || 'none'}`); } catch (e) { toast(e.message); } };
 $('pushOff').onclick = async () => {
   try {
     const reg = await navigator.serviceWorker.getRegistration('/');
