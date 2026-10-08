@@ -125,6 +125,44 @@ function route() {
 }
 window.addEventListener('hashchange', route);
 
+// ---- alerts (Web Push). The push itself carries nothing; sw.js fetches the held request after it wakes.
+const swPolicy = window.trustedTypes ? trustedTypes.createPolicy('leash-sw', { createScriptURL: (u) => { if (u !== '/sw.js') throw new Error('blocked'); return u; } }) : null;
+const pushOk = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+async function pushState() {
+  const panel = $('pushPanel');
+  const k = await api('GET', '/v1/push/key');
+  if (!k.enabled) { panel.hidden = true; return; }
+  panel.hidden = false;
+  if (!pushOk()) {
+    $('pushHint').textContent = 'This browser cannot show alerts here. On iPhone: open LEASH in Safari, tap Share, then Add to Home Screen, and open LEASH from your home screen.';
+    for (const b of ['pushOn', 'pushTest', 'pushOff']) $(b).hidden = true;
+    return;
+  }
+  const reg = await navigator.serviceWorker.getRegistration('/');
+  const sub = reg ? await reg.pushManager.getSubscription() : null;
+  $('pushOn').hidden = !!sub; $('pushTest').hidden = !sub; $('pushOff').hidden = !sub;
+}
+$('pushOn').onclick = async () => {
+  try {
+    const k = await api('GET', '/v1/push/key');
+    if ((await Notification.requestPermission()) !== 'granted') return toast('Alerts are blocked in this browser. Allow notifications for this site, then try again.');
+    const reg = await navigator.serviceWorker.register(swPolicy ? swPolicy.createScriptURL('/sw.js') : '/sw.js', { scope: '/' });
+    await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64u.dec(k.key) });
+    await api('POST', '/v1/push/subscribe', { endpoint: sub.endpoint });
+    toast('Alerts are on for this device.'); pushState();
+  } catch (e) { toast(e.message); }
+};
+$('pushTest').onclick = async () => { try { const r = await api('POST', '/v1/push/test', {}); toast(r.sent ? 'Test sent. The alert should arrive in a few seconds.' : 'No device answered. Turn alerts off and on again.'); } catch (e) { toast(e.message); } };
+$('pushOff').onclick = async () => {
+  try {
+    const reg = await navigator.serviceWorker.getRegistration('/');
+    const sub = reg ? await reg.pushManager.getSubscription() : null;
+    if (sub) { await api('POST', '/v1/push/unsubscribe', { endpoint: sub.endpoint }); await sub.unsubscribe(); }
+    toast('Alerts are off for this device.'); pushState();
+  } catch (e) { toast(e.message); }
+};
+
 async function boot() {
   try {
     const me = await api('GET', '/v1/me');
@@ -133,7 +171,7 @@ async function boot() {
     $('avatar').textContent = (me.account.name.trim()[0] || '?').toUpperCase();
     meta = meta || (await api('GET', '/v1/meta'));
     const p = $('prov'); p.replaceChildren(...meta.providers.map((x) => el('option', { value: x.id, textContent: x.name })));
-    route(); await load();
+    route(); await load(); pushState().catch(() => {});
     clearInterval(boot.poll); boot.poll = setInterval(() => load().catch(() => {}), 5000);
   } catch {
     $('signedOut').hidden = false; $('signedIn').hidden = true;

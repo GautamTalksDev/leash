@@ -7,6 +7,9 @@
 <meta name="theme-color" content="#08090b">
 <link rel="stylesheet" href="/styles.css">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
 </head>
 <body>
 
@@ -62,8 +65,9 @@
 
     <section class="view" data-view="holds">
       <header class="vh"><div><h1>Held</h1><p class="dim">Irreversible calls your agents tried. Nothing happens until you decide.</p></div></header>
+      <div class="banner" id="pushPanel" hidden><div><h3>Get alerted on this device</h3><p class="dim" id="pushHint">When an agent is stopped, this phone or computer buzzes and the notification opens the request. The alert itself carries nothing: details load from LEASH only after you tap.</p></div><div class="row"><button id="pushOn" class="btn pri" type="button">Turn on alerts</button><button id="pushTest" class="btn" type="button" hidden>Send a test</button><button id="pushOff" class="btn" type="button" hidden>Turn off</button></div></div>
       <div id="holds" class="holds"></div>
-      <div id="noHolds" class="empty"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" class="ring"/><circle cx="12" cy="12" r="3" class="dot"/></svg><h3>All clear</h3><p class="dim">When an agent tries something it can't take back, it waits here and on your phone.</p></div>
+      <div id="noHolds" class="empty"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" class="ring"/><circle cx="12" cy="12" r="3" class="dot"/></svg><h3>All clear</h3><p class="dim">When an agent tries something it can't take back, it waits here. Turn on alerts to hear about it on your phone.</p></div>
     </section>
 
     <section class="view" data-view="vault" hidden>
@@ -114,7 +118,7 @@
       <header class="vh"><div><h1>Account</h1><p class="dim">Your data, and how to take it all away.</p></div></header>
       <div class="panel form">
         <h3>What LEASH keeps about you</h3>
-        <p class="dim small">Your name, your passkey's public key, your encrypted vault, token hashes, holds and your audit log. Never your face, fingerprint or readable keys. <a class="ul" href="/privacy/">Privacy policy</a></p>
+        <p class="dim small">Your name, your passkey's public key, your encrypted vault, token hashes, holds, your audit log and, if you turn on alerts, each device's push address. Never your face, fingerprint or readable keys. <a class="ul" href="/privacy/">Privacy policy</a></p>
       </div>
       <div class="panel form danger">
         <h3>Delete account</h3>

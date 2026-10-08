@@ -6,6 +6,7 @@ import { normalisePolicy, decide } from './policy.js';
 import { audit } from './audit.js';
 import { newChallenge, takeChallenge, checkAssertion, rp } from './auth.js';
 import { limit } from './ratelimit.js';
+import { notify } from './push.js';
 
 const HOLD_TTL = 30 * 60_000, GRANT_TTL = 10 * 60_000, MAX_BODY = 1_048_576, MAX_RESP = 10 * 1_048_576;
 
@@ -194,6 +195,9 @@ export async function proxy(env, request, provider, rest, fetcher = fetch) {
         await env.DB.prepare('INSERT INTO holds (id, account_id, token_id, req_hash, method, host, path, rule, why, created_at, expires_at, preview) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
           .bind(h.id, tok.account_id, tok.id, reqHash, method, P.host, where.path, d.rule, d.why, now(), h.expires_at, pv).run();
         await audit(env, tok.account_id, 'token:' + tok.id, 'hold', { ...where, rule: d.rule, hold: h.id, preview_sha256: await sha256hex(pv || '') });
+        // wake the owner's devices after responding; the push itself carries nothing
+        const p = notify(env, tok.account_id, env.__pushFetch || fetch).catch(() => {});
+        if (env.__ctx) env.__ctx.waitUntil(p); else await p;
       }
       const approveUrl = `${rp(env).origin}/app#hold=${h.id}`;
       return json({

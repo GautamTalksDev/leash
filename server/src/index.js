@@ -5,6 +5,7 @@ import * as B from './broker.js';
 import { list as auditList, verifyChain } from './audit.js';
 import { limit, ipBucket } from './ratelimit.js';
 import { PROVIDERS, MAP_VERSION } from './providers.js';
+import * as Push from './push.js';
 
 const ID = '([0-9a-f]{24})';
 // [method, regex, guard, handler]; guard: 'public' | 'session' (read) | 'write' (session + CSRF for web)
@@ -22,6 +23,10 @@ const ROUTES = [
   ['GET', /^\/v1\/me$/, 'session', async (c) => ({ account: await c.env.DB.prepare('SELECT id, name, created_at FROM accounts WHERE id = ?').bind(c.s.accountId).first(), kind: c.s.kind })],
   ['POST', /^\/v1\/me\/delete\/begin$/, 'webw', (c) => deleteBegin(c.env, c.s)],
   ['POST', /^\/v1\/me\/delete\/finish$/, 'webw', (c) => deleteAccount(c.env, c.s, c.body)],
+  ['GET', /^\/v1\/push\/key$/, 'session', (c) => Push.publicKey(c.env)],
+  ['POST', /^\/v1\/push\/subscribe$/, 'write', (c) => Push.subscribe(c.env, c.s, c.body)],
+  ['POST', /^\/v1\/push\/unsubscribe$/, 'write', (c) => Push.unsubscribe(c.env, c.s, c.body)],
+  ['POST', /^\/v1\/push\/test$/, 'write', (c) => Push.notify(c.env, c.s.accountId, c.env.__pushFetch || fetch)],
   ['GET', /^\/v1\/credentials$/, 'session', (c) => B.listCredentials(c.env, c.s)],
   ['POST', /^\/v1\/credentials$/, 'write', (c) => B.addCredential(c.env, c.s, c.body)],
   // deleting a vaulted key breaks every token on it; an agent holding a CLI session must not be able to do that
@@ -51,7 +56,7 @@ async function deleteAccount(env, s, body) {
   if (ch.account_id !== s.accountId) throw new HttpError(403, 'forbidden');
   await A.checkAssertion(env, body.credential, ch.challenge, s.accountId);
   const id = s.accountId;
-  await env.DB.batch(['holds', 'tokens', 'credentials', 'audit', 'sessions', 'passkeys', 'challenges', 'device_codes'].map((t) => env.DB.prepare(`DELETE FROM ${t} WHERE account_id = ?`).bind(id))
+  await env.DB.batch(['push_subs', 'holds', 'tokens', 'credentials', 'audit', 'sessions', 'passkeys', 'challenges', 'device_codes'].map((t) => env.DB.prepare(`DELETE FROM ${t} WHERE account_id = ?`).bind(id))
     .concat([env.DB.prepare('DELETE FROM accounts WHERE id = ?').bind(id)]));
   return { deleted: true };
 }
