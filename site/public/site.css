@@ -266,6 +266,8 @@ h2 em{color:var(--dim)}
 .tier li{display:flex;gap:10px;align-items:center}
 .tier li::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--acc)}
 .tier .btn{margin-top:auto}
+.tiers.one{grid-template-columns:minmax(0,440px)}
+.tier ul + p.muted{margin:-6px 0 24px;font-size:14px}
 
 /* final */
 .final{max-width:var(--maxw);margin:160px auto 0;padding:80px 24px;text-align:center;position:relative}
