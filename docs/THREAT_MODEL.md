@@ -42,6 +42,13 @@ approval only covers the request it was given for*.
 encoded slashes and dots, backslashes and whitespace are refused; the upstream host is fixed per provider. Test: *policy:
 ... traversal*.
 
+**S6b. Parser differentials to slip a call past the map.** The agent sends a request LEASH reads one way and the
+upstream another: a repeated parameter (`confirm=false&confirm=true`; Rack keeps the last copy), the same parameter in
+the body and the query string, a `;` separator, a JSON escape or case variant of a key, a method override (`_method`),
+a doubled trailing slash, a different case or a `.json` suffix in the path, a HEAD for a GET. LEASH reads every copy,
+treats JSON with repeated or case-variant keys as unreadable, and holds whenever two readings could disagree. Tests:
+`server/test/bypass.test.js`.
+
 **S7. Cross-account access (IDOR).** Every query is scoped by account; foreign ids return 404. Test: *another account
 cannot see or approve your holds*.
 

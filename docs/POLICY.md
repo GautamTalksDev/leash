@@ -26,11 +26,18 @@ Each `lsh_` token carries a policy. A policy can only **narrow** what the underl
 
 A **rule** is `{ "method": "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "*", "path": "<glob>" }`. Paths are relative to
 the provider's base (for Cloudflare, after `/client/v4`). Globs: `*` matches one path segment, `**` any depth, `{a,b}`
-alternatives.
+alternatives (which may contain `*` and `**`; braces cannot nest, and an unbalanced brace is refused with
+`400 bad_policy`).
 
 Paths are matched in one canonical form, and that exact path is what LEASH sends upstream: a path with an empty
-segment (`//`) is refused with `400 bad_path`, one trailing slash is dropped (on requests and on your rules), and on
-GitHub, where owner and repo names are case-insensitive, both the path and your rule are lowercased before matching.
+segment (`//`, including a doubled trailing slash), a `;` path parameter or an encoded NUL is refused with
+`400 bad_path`, one trailing slash is dropped (on requests and on your rules), and on GitHub, where owner and repo names
+are case-insensitive, both the path and your rule are lowercased before matching. A `deny` or `hold` rule written for
+`GET` also covers `HEAD`.
+
+The irreversible map is stricter than your rules: it ignores case on every provider, also matches a path without a format
+suffix such as `.json`, treats `HEAD` as `GET`, and holds any request that carries a method override (`_method`). A
+method override hold cannot be pre-approved with `unattendedIrreversible`.
 
 ## Order of evaluation
 

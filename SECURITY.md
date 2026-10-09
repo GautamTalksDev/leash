@@ -52,4 +52,30 @@ other people's data or degrade the service.
 - SQL is held unless it is one read-only statement calling only known pure functions.
 - Deleting your account needs a fresh passkey ceremony; deleting a vaulted key needs a web session.
 
+## Hardening, 9 Oct 2026 (map `2026-10-09.1`)
+
+Found in the launch audit and the review after it; every item has a test in `server/test/bypass.test.js`.
+
+- Stripe: a repeated `confirm`, `cancel_at` or `cancel_at_period_end` is held (Rack keeps the last copy, other parsers
+  the first), and so is one that appears in both the body and the query string, after a `;`, or in an odd form
+  (`confirm[]`, `[confirm]`, a leading space, another case). Every copy is checked. Multipart bodies and bodies that
+  look like JSON but are not are held on those routes.
+- JSON bodies are read by a strict parser: an object with repeated keys, or keys that differ only in case (Go folds case,
+  including the Kelvin sign and the long s), is unreadable and so held. This covers SQL, GraphQL, GitHub force-push and
+  visibility, and the new Cloudflare purge check.
+- Cloudflare purge reads the parsed body (an escaped `purge_everything` no longer slips past a text match). Purge by
+  file or tag passes; everything, a whole host, a URL prefix, any other field or an unreadable body is held.
+- GraphQL (GitHub, Railway): GraphQL parameters in the query string (Rails merges them over the body), document ids,
+  persisted-query hashes and form readings of the body are held. A Railway GET query string that does not decode cleanly
+  is held. Railway PUT, PATCH and DELETE are held.
+- Method overrides: a `_method` parameter in the query string, form body, JSON body or a multipart part is held on every
+  provider and cannot be pre-approved. Override headers were never forwarded; a test now pins that.
+- Paths and methods: a doubled trailing slash (`/v1/refunds//`), `;` path parameters and an encoded NUL are refused; the
+  map is matched without regard to case on every provider and with or without a format suffix (`.json`); a HEAD trips
+  GET rules, and GET deny and hold rules in a policy cover HEAD.
+- Bodies declared in a charset other than UTF-8 are refused.
+- Globs: `*` inside braces now compiles (the R2 config rule threw, so every other Cloudflare PUT, a KV write for example,
+  failed with 500); policy paths with unbalanced or nested braces are refused when the token is minted.
+- SQL through other doors: Supabase migrations, D1 import (`ingest`) and D1 time travel restore are held.
+
 See [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
