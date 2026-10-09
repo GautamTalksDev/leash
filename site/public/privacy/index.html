@@ -36,7 +36,7 @@
   <p class="kicker">Privacy</p>
   <h1>Privacy policy</h1>
   <p class="lead">LEASH holds your most sensitive keys, so we collect as little as we can and say exactly what that is.</p>
-  <p class="meta">Last updated 7 October 2026</p>
+  <p class="meta">Last updated 9 October 2026</p>
 
   <h2 id="short">The short version</h2>
   <ul>
@@ -65,7 +65,7 @@
     <tr><td>Held calls: method, host, path, rule, time, decision, and a preview of the request (query string and up to 2 KB of the body or SQL)</td><td>So you can see exactly what you are approving. The preview is deleted a day after you decide; the audit log keeps only a fingerprint (hash) of it.</td></tr>
     <tr><td>Your audit log</td><td>Calls, holds, approvals, token and key changes, hash-chained so tampering is detectable.</td></tr>
     <tr><td>Session records, as a hash</td><td>To keep you signed in. Web sessions and CLI sessions expire automatically.</td></tr>
-    <tr><td>Push addresses of devices where you turned on alerts (optional)</td><td>To wake those devices when a call is held. The push carries no content, so Google, Apple, Mozilla or Microsoft (whoever runs your browser's push service) learn only that a wake-up was sent, never what was held. Turn alerts off or delete your account and the address is removed.</td></tr>
+    <tr><td>Push addresses of devices where you turned on alerts (optional)</td><td>To wake those devices when a call is held. The push carries no content, so Google, Apple, Mozilla or Microsoft (whoever runs your browser's push service) learn only that a wake-up was sent, never what was held. Your device then fetches the alert text (the method, host and path of the held call) from LEASH over your own session; it is shown on your device and may appear on its lock screen. Turn alerts off or delete your account and the address is removed.</td></tr>
     <tr><td>A salted hash of your IP address</td><td>Only for rate limiting, deleted when the limit window ends. IPv6 addresses are grouped by /64 before hashing.</td></tr>
   </table>
 
@@ -74,11 +74,11 @@
     <li>Your biometric data, device PIN or private keys.</li>
     <li>Your API keys in readable form, anywhere: not in the database, not in logs, not in error messages.</li>
     <li>The bodies of requests your agents send or the responses they get back. They pass through and are gone. The only exception is the short preview of a held call, kept until a day after you decide on it.</li>
-    <li>Your IP address in clear, your location, or any device fingerprint.</li>
+    <li>Your IP address in clear, your location, or any device fingerprint, in our database. Our host, Cloudflare, processes every request and may keep short-lived operational logs, including IP addresses, under its own privacy policy (see <a href="#where">Where it lives</a>).</li>
   </ul>
 
   <h2 id="where">Where it lives</h2>
-  <p>LEASH runs on Cloudflare Workers and Cloudflare D1. Cloudflare is our only processor. If you turn on alerts, your browser's push service delivers an empty wake-up message. Requests are handled at the Cloudflare location nearest to you; the database lives in one Cloudflare region. Cloudflare's own request logs (URL path, status, timing) are kept for a few days for debugging and never contain your keys or tokens.</p>
+  <p>LEASH runs on Cloudflare Workers and Cloudflare D1. Cloudflare is our only processor. If you turn on alerts, your browser's push service delivers an empty wake-up message. Requests are handled at the Cloudflare location nearest to you; the database lives in one Cloudflare region. Cloudflare keeps logs of each request (such as the URL, status and timing, and possibly your IP address) for up to 3 days so we can debug the service. LEASH itself never writes your keys or tokens to any log.</p>
   <p>When public receipts are enabled for the service, LEASH sends a minimal record of each decision to the WITNESS transparency log: the method, the host and a hash of the path. Never the path itself, your name or your keys.</p>
 
   <h2 id="keep">How long we keep it</h2>
