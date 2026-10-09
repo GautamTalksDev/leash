@@ -16,7 +16,7 @@ until a human approves it with a passkey.
 
 ## Why this exists
 
-On **25 April 2026**, an AI coding agent working on a staging credential mismatch searched a repo, found a Railway API token in
+In **late April 2026**, an AI coding agent working on a staging credential mismatch searched a repo, found a Railway API token in
 an unrelated file, and called `volumeDelete`. PocketOS lost its production database **and every volume backup in nine
 seconds**. The token had been created to manage custom domains. Every prompt-level guardrail was switched on.
 ([AI Incident Database](https://incidentdatabase.ai/reports/7311), [PointGuard AI](https://pointguardai.com/ai-security-incidents/ai-agent-deletes-production-database-in-nine-seconds-and-apologizes))
