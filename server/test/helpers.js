@@ -78,8 +78,8 @@ export class World {
       return this.reply(url, init);
     };
   }
-  async req(method, path, { body, cookie, bearer, origin = ORIGIN, xleash = true, raw } = {}) {
-    const h = { 'cf-connecting-ip': '203.0.113.7' };
+  async req(method, path, { body, cookie, bearer, origin = ORIGIN, xleash = true, raw, headers = {} } = {}) {
+    const h = { 'cf-connecting-ip': '203.0.113.7', ...headers };
     if (body !== undefined) h['content-type'] = 'application/json';
     if (cookie) h.cookie = cookie;
     if (bearer) h.authorization = 'Bearer ' + bearer;

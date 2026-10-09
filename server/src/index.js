@@ -4,13 +4,13 @@ import * as A from './auth.js';
 import * as B from './broker.js';
 import { list as auditList, verifyChain } from './audit.js';
 import { limit, ipBucket } from './ratelimit.js';
-import { PROVIDERS, MAP_VERSION } from './providers.js';
+import { PROVIDERS, MAP_VERSION, COMMON } from './providers.js';
 import * as Push from './push.js';
 
 const ID = '([0-9a-f]{24})';
 // [method, regex, guard, handler]; guard: 'public' | 'session' (read) | 'write' (session + CSRF for web)
 const ROUTES = [
-  ['GET', /^\/v1\/meta$/, 'public', () => ({ mapVersion: MAP_VERSION, providers: Object.entries(PROVIDERS).map(([id, p]) => ({ id, name: p.name, host: p.host, irreversible: p.irreversible.map((r) => ({ id: r.id, method: r.m, path: r.p, why: r.why })) })) })],
+  ['GET', /^\/v1\/meta$/, 'public', () => ({ mapVersion: MAP_VERSION, common: COMMON.map((r) => ({ id: r.id, method: r.m, path: r.p, why: r.why })), providers: Object.entries(PROVIDERS).map(([id, p]) => ({ id, name: p.name, host: p.host, irreversible: p.irreversible.map((r) => ({ id: r.id, method: r.m, path: r.p, why: r.why })) })) })],
   ['POST', /^\/v1\/auth\/register\/begin$/, 'publicw', (c) => A.registerBegin(c.env, c.body)],
   ['POST', /^\/v1\/auth\/register\/finish$/, 'publicw', (c) => A.registerFinish(c.env, c.body, c.request)],
   ['POST', /^\/v1\/auth\/login\/begin$/, 'publicw', (c) => A.loginBegin(c.env)],

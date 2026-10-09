@@ -119,14 +119,14 @@ const PASS_REQ = ['accept', 'accept-language', 'content-type', 'user-agent', 'if
 const DROP_RESP = new Set(['set-cookie', 'set-cookie2', 'alt-svc', 'strict-transport-security', 'content-encoding', 'content-length', 'transfer-encoding', 'connection']);
 
 /** One canonical path, used for matching and sent upstream unchanged: no traversal, no encoded slashes or dots that
- * could escape the provider base, no empty segments, and one trailing slash dropped so /x and /x/ are the same path. */
+ * could escape the provider base, no empty segments (checked before the trailing slash is dropped, so "/x//" cannot
+ * become "/x/"), no ";" path parameters (some servers strip them before routing) or encoded NUL, and one trailing
+ * slash dropped so /x and /x/ are the same path. */
 export function canonPath(p) {
-  if (/(^|\/)\.\.?(\/|$)/.test(p) || /%2f|%5c|%2e/i.test(p) || /[\\\s]/.test(p) || p.length > 2000) throw new HttpError(400, 'bad_path');
+  if (/(^|\/)\.\.?(\/|$)/.test(p) || /%2f|%5c|%2e|%00/i.test(p) || /[\\\s;]/.test(p) || p.includes('//') || p.length > 2000) throw new HttpError(400, 'bad_path');
   // Decode escapes of unreserved characters (%72 is just "r") so rules see what the upstream router sees.
   p = p.replace(/%([0-9a-f]{2})/gi, (m, h) => { const c = String.fromCharCode(parseInt(h, 16)); return /[A-Za-z0-9\-_~]/.test(c) ? c : m.toUpperCase(); });
-  const c = p.length > 1 && p.endsWith('/') ? p.slice(0, -1) : p;
-  if (c.includes('//')) throw new HttpError(400, 'bad_path');
-  return c;
+  return p.length > 1 && p.endsWith('/') ? p.slice(0, -1) : p;
 }
 
 /** What the approver sees. First LEASH's own parsed account of the request (mutations, SQL statements and every write
@@ -170,7 +170,10 @@ export async function proxy(env, request, provider, rest, fetcher = fetch) {
   const url = new URL(request.url);
   const body = ['GET', 'HEAD'].includes(method) ? null : new Uint8Array(await request.arrayBuffer());
   if (body && body.length > MAX_BODY) throw new HttpError(413, 'too_large');
-  // fatal: a body that is not valid UTF-8 could read one way to LEASH and another way upstream
+  // fatal: a body that is not valid UTF-8 could read one way to LEASH and another way upstream; so could a body the
+  // content-type declares to be in another charset (LEASH always reads UTF-8)
+  const cs = /;\s*charset\s*=\s*"?([^";\s]*)/i.exec(request.headers.get('content-type') || '');
+  if (body && body.length && cs && !/^(utf-?8|us-ascii)$/i.test(cs[1])) throw new HttpError(400, 'bad_body', 'Request bodies must be UTF-8.');
   let bodyText = '';
   try { bodyText = body ? new TextDecoder('utf-8', { fatal: true }).decode(body) : ''; } catch { throw new HttpError(400, 'bad_body', 'Request body must be valid UTF-8.'); }
 
