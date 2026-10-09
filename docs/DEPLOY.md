@@ -8,11 +8,13 @@ npx -y wrangler@4 login
 npx -y wrangler@4 d1 create leash                      # paste the database_id into wrangler.jsonc
 node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))" | npx -y wrangler@4 secret put LEASH_KEK
 node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))" | npx -y wrangler@4 secret put IP_SALT
-npx -y wrangler@4 d1 migrations apply leash --remote
+node dev/vapid-keygen.mjs | npx -y wrangler@4 secret put VAPID_PRIVATE_JWK   # phone alerts (Web Push); optional
+npx -y wrangler@4 d1 migrations apply leash --remote   # 0001_init, 0002_hold_preview, 0003_push
 ```
 
-In `wrangler.jsonc`, uncomment the `routes` line with your domain and set `RP_ID` and `ORIGIN` to it (the passkey RP ID
-must be the domain users see). Then:
+`wrangler.jsonc` is set up for `leash.gautamkhosla.com` (`routes`, `RP_ID`, `ORIGIN`). For another domain, change all
+three to it (the passkey RP ID must be the domain users see). Without `VAPID_PRIVATE_JWK`, phone alerts are simply off.
+Then:
 
 ```bash
 npx -y wrangler@4 deploy
