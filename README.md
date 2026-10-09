@@ -176,8 +176,9 @@ See [docs/DEPLOY.md](docs/DEPLOY.md). Short version: create the D1 database, set
 
 ## Status and roadmap
 
-v1 brokers GitHub, Cloudflare, Railway, Stripe and Supabase. Next: Vercel, Fly.io, AWS (SigV4 re-signing), Neon,
-PlanetScale; two-person approval; web push; SSO for teams; signed per-call receipts in the
+v1 brokers GitHub, Cloudflare, Railway, Stripe and Supabase, and sends phone and desktop notifications for held calls
+(Web Push, payload-free). Next: Vercel, Fly.io, AWS (SigV4 re-signing), Neon, PlanetScale; two-person approval; SSO for
+teams; signed per-call receipts in the
 [IETF SCITT](https://datatracker.ietf.org/wg/scitt/about/) shape.
 
 LEASH follows the architecture of the IETF draft
