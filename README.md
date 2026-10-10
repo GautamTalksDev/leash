@@ -1,3 +1,5 @@
+> **LEASH, WITNESS and SIGIL are now one product: Counterseal.** LEASH became **Approve** (irreversible calls wait for your passkey), WITNESS became **Record** (a public log of what was decided), and SIGIL became **Prove who** (agents sign their requests). Counterseal: [github.com/GautamTalksDev/counterseal](https://github.com/GautamTalksDev/counterseal) and [counterseal.gautamkhosla.com](https://counterseal.gautamkhosla.com). This repository is kept for history.
+
 <div align="center">
 
 # LEASH
